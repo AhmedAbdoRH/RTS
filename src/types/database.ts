@@ -28,6 +28,8 @@ export interface Service {
   sale_price: string | null; // السعر المخفض
   is_featured?: boolean; // أحدث العروض
   is_best_seller?: boolean; // الأكثر مبيعاً
+  has_multiple_sizes?: boolean;
+  sizes?: { size: string; price: string; sale_price?: string }[];
   created_at: string;
   category?: Category;
   // For search results display
@@ -75,5 +77,13 @@ export interface Testimonial {
   id: string;
   image_url: string | null;
   is_active: boolean;
+  created_at: string;
+}
+
+export interface Subcategory {
+  id: string;
+  category_id: string;
+  name_ar: string;
+  description_ar: string | null;
   created_at: string;
 }

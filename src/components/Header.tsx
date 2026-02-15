@@ -2,18 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, X, ShoppingCart, Trash2, Menu, X as Close, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Category, StoreSettings, Service } from '../types/database';
+import type { Category, Service } from '../types/database';
 import { useCart } from '../contexts/CartContext';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import LanguageToggle from './LanguageToggle';
 import { useLanguage } from '../contexts/LanguageContext';
 
-interface HeaderProps {
-  storeSettings?: StoreSettings | null;
-}
-
-export default function Header({ storeSettings }: HeaderProps) {
+export default function Header() {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Service[]>([]);
@@ -36,8 +32,7 @@ export default function Header({ storeSettings }: HeaderProps) {
     updateQuantity, 
     isCartOpen,
     cartTotal,
-    sendOrderViaWhatsApp,
-    isAutoShowing
+    sendOrderViaWhatsApp
   } = useCart();
   
   // Toggle mobile search and focus the input when opened

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Target, Facebook, Instagram, Twitter, Snail as Snapchat, Youtube } from 'lucide-react';
 import type { StoreSettings } from '../types/database';
@@ -58,7 +57,7 @@ export default function Footer({ storeSettings }: FooterProps) {
 
           <Link
             to="/admin/login"
-            className="text-white/20 hover:text-[#ffd453] transition-colors duration-300 flex justify-center items-center text-xs mt-4"
+            className="opacity-0 flex justify-center items-center text-xs mt-4"
           >
             Admin Panel
           </Link>

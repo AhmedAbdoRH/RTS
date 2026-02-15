@@ -1,18 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { Service } from '../types/database';
 import { useLanguage } from '../contexts/LanguageContext';
 import { MessageCircle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
-
-function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<T>();
-  useEffect(() => {
-    ref.current = value;
-  }, [value]);
-  return ref.current;
-}
 
 export default function ProductDetails() {
   const { t, currentLanguage } = useLanguage();
@@ -22,9 +14,6 @@ export default function ProductDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suggested, setSuggested] = useState<Service[]>([]);
-
-  // New state to control fade-out of previous image
-  const [prevOpacity, setPrevOpacity] = useState(1);
 
   // Add two states to control image transitions
   const [currentTransform, setCurrentTransform] = useState('translateX(0)');
@@ -103,9 +92,6 @@ export default function ProductDetails() {
     setCurrentImage(0);
   }, [service?.id]);
 
-  // Use usePrevious to save the previous image index
-  const previousImageIndex = usePrevious(currentImage);
-
   // Extracted background styles for reuse
   const backgroundStyles = {
     background: '#1c594e',
@@ -138,7 +124,6 @@ export default function ProductDetails() {
   useEffect(() => {
     // Transition settings
     const DURATION = 1800; // Actual transition duration (ms)
-    const DELAY = 0; // No need for additional delay
 
     // Start transition only if there is no ongoing transition
     setIsTransitioning(true);

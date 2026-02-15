@@ -4,7 +4,6 @@ import { Helmet } from 'react-helmet-async';
 import { supabase } from './lib/supabase';
 import { CartProvider } from './contexts/CartContext';
 import { LanguageProvider } from './contexts/LanguageContext';
-import Cart from './components/Cart';
 import Header from './components/Header';
 import BannerSlider from './components/BannerSlider';
 import Services from './components/Services';
@@ -59,7 +58,6 @@ function App() {
   const [storeSettings, setStoreSettings] = useState<StoreSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [mainContentLoaded, setMainContentLoaded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -97,12 +95,7 @@ function App() {
   useEffect(() => {
     if (storeSettings) {
       const theme = (storeSettings as any).theme_settings || {};
-      const primary = theme.primaryColor || '#1c594e';
-      const secondary = theme.secondaryColor || '#ffffff';
-      const accent = theme.accentColor || '#ffd453';
       const fontFamily = theme.fontFamily || 'Cairo, sans-serif';
-      const backgroundGradient = theme.backgroundGradient || '';
-      const backgroundColor = theme.backgroundColor || '#000';
 
       const root = document.documentElement;
       root.style.setProperty('--color-primary', '#1c594e');
@@ -228,7 +221,7 @@ function App() {
         backgroundAttachment: 'fixed',
       }}
     >
-      <Header storeSettings={storeSettings} />
+      <Header />
       {window.location.pathname === '/' && layoutBanners.length > 0 && (
         <BannerSlider banners={layoutBanners} />
       )}
@@ -240,10 +233,7 @@ function App() {
 
   if (loading) {
     return (
-      <LoadingScreen
-        logoUrl={storeSettings?.logo_url || '/logo.svg'} // Provide a default logo
-        storeName={storeSettings?.store_name || 'شركة الريان للحلول التكنولوجية'}
-      />
+      <LoadingScreen />
     );
   }
 
@@ -295,8 +285,6 @@ function App() {
                 <Layout banners={banners}>
                   <StaggeredHome
                     storeSettings={storeSettings}
-                    banners={banners}
-                    setMainContentLoaded={setMainContentLoaded}
                   />
                 </Layout>
               } />
@@ -310,17 +298,9 @@ function App() {
 
 function StaggeredHome({
   storeSettings,
-  banners, // This prop is received but not directly used in this simplified version
-  setMainContentLoaded,
 }: {
   storeSettings: StoreSettings | null;
-  banners: Banner[];
-  setMainContentLoaded: (v: boolean) => void;
 }) {
-  useEffect(() => {
-    setMainContentLoaded(true); // Signal that content related to StaggeredHome is ready
-  }, [setMainContentLoaded]);
-
   return (
     <>
       {/* Services component is part of the staggered load */}

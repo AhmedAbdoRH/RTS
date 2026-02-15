@@ -139,13 +139,13 @@ export default function AIChatBot() {
                     context += `الأسعار المتاحة (حسب المقاس/المواصفات):\n`;
                     
                     // ترتيب المقاسات حسب السعر
-                    const sortedSizes = product.sizes.sort((a, b) => {
+                    const sortedSizes = product.sizes.sort((a: any, b: any) => {
                         const priceA = parseFloat(a.sale_price as any) || parseFloat(a.price as any);
                         const priceB = parseFloat(b.sale_price as any) || parseFloat(b.price as any);
                         return priceA - priceB;
                     });
                     
-                    sortedSizes.forEach(size => {
+                    sortedSizes.forEach((size: any) => {
                         if (size.sale_price) {
                             context += `  - ${size.size}: ${size.sale_price} ج.م (بعد الخصم) - السعر الأصلي: ${size.price} ج.م\n`;
                         } else {
@@ -154,8 +154,8 @@ export default function AIChatBot() {
                     });
                     
                     const validSalePrices = product.sizes
-                        .map(s => parseFloat(s.sale_price as any))
-                        .filter(p => !isNaN(p) && p > 0);
+                        .map((s: any) => parseFloat(s.sale_price as any))
+                        .filter((p: any) => !isNaN(p) && p > 0);
                     
                     if (validSalePrices.length > 0) {
                         const minSalePrice = Math.min(...validSalePrices);

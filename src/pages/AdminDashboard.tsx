@@ -1,23 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { removeBackgroundWithGemini, base64ToFile, createImageDataUrl, validateApiKey } from '../lib/geminiService';
-import { removeBackgroundWithCanvas, base64ToFile as canvasBase64ToFile } from '../lib/canvasBgRemoval';
-import { removeBackgroundWithFreeAPI, base64ToFile as freeBase64ToFile } from '../lib/freeBgRemovalService';
 import type { Category, Service, Banner, StoreSettings, Testimonial, Subcategory } from '../types/database'; // Added Subcategory type
-import { Trash2, Edit, Plus, Save, X, Upload, ChevronDown, ChevronUp, Facebook, Instagram, Twitter, Palette, Store, Image, List, Package } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, Upload, Store, Image, List, Package } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-const successGreen = '#26bd7e';
-const greenButtonClass = `bg-[#ffd453] text-[#1c594e] px-6 py-2 rounded flex items-center gap-2 disabled:opacity-50 font-bold hover:brightness-110 transition-all`;
-const greenTabClass = `bg-[#ffd453] text-[#1c594e] shadow-lg border-b-4 border-[#26bd7e] font-bold`;
-const greenTabInactiveClass = 'bg-white/5 text-white/70 hover:bg-white/10 transition-all';
 
 const STORE_SETTINGS_ID = "00000000-0000-0000-0000-000000000001";
 
 interface AdminDashboardProps {
   onSettingsUpdate?: () => void;
+}
+
+interface ServiceFormState {
+  title: string;
+  description: string;
+  description_en: string;
+  image_url: string;
+  price: string;
+  sale_price: string;
+  category_id: string;
+  gallery: string[];
+  is_featured: boolean;
+  is_best_seller: boolean;
 }
 
 export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps) {
@@ -29,34 +34,23 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [removingBackground, setRemovingBackground] = useState(false);
   const [uploadingBannerImage, setUploadingBannerImage] = useState(false);
   const [editingService, setEditingService] = useState<string | null>(null);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingBanner, setEditingBanner] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ id: string; type: 'category' | 'service' | 'banner' | 'subcategory' } | null>(null);
   const [activeTab, setActiveTab] = useState<'products' | 'banners' | 'testimonials' | 'store'>('products');
 
-  // Remove BG switch state and original image backup (session only)
-  const [removeBgSwitch, setRemoveBgSwitch] = useState(false);
-  const [originalServiceImageUrl, setOriginalServiceImageUrl] = useState<string | null>(null);
-
   // Testimonials state
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
-  const [newTestimonial, setNewTestimonial] = useState({
-    image_url: '',
-    // is_active: true, // You may not need this field if it's not in your form
-  });
-  const [editingTestimonial, setEditingTestimonial] = useState<string | null>(null);
+  const [newTestimonial, setNewTestimonial] = useState({ image_url: '' });
   const [uploadingTestimonialImage, setUploadingTestimonialImage] = useState(false);
   const [productsSubTab, setProductsSubTab] = useState<'services' | 'categories' | 'subcategories'>('services');
   const [bannersSubTab, setBannersSubTab] = useState<'text' | 'image'>('image');
 
   const [newCategory, setNewCategory] = useState({ name: '', description: '' });
   const [newSubcategory, setNewSubcategory] = useState({ category_id: '', name_ar: '', description_ar: '' });
-  const [newService, setNewService] = useState({
+  const [newService, setNewService] = useState<ServiceFormState>({
     title: '',
     description: '',
     description_en: '',
@@ -64,7 +58,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     price: '',
     sale_price: '',
     category_id: '',
-    gallery: [] as string[],
+    gallery: [],
     is_featured: false,
     is_best_seller: false,
   });
@@ -96,10 +90,6 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     show_testimonials: false // Added this property
   });
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [uploadingFavicon, setUploadingFavicon] = useState(false);
-  const [uploadingOgImage, setUploadingOgImage] = useState(false);
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [keywordInput, setKeywordInput] = useState('');
 
   const navigate = useNavigate();
 
@@ -121,128 +111,6 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     }
   };
 
-  // Remove background from an existing image URL using Google Gemini Nano Banana
-  async function removeBackgroundFromImageUrl(url: string): Promise<File> {
-    const result = await removeBackgroundWithGemini(url, "Remove the background from this image, keeping only the main subject. Make the background transparent.");
-    
-    if (!result.success || !result.imageData) {
-      throw new Error(result.error || 'فشل في إزالة الخلفية');
-    }
-    
-    return base64ToFile(result.imageData, `${Date.now()}_bg_removed.png`);
-  }
-
-  const handleToggleRemoveBgSwitch = async (checked: boolean) => {
-    if (!newService.image_url) return;
-    if (checked) {
-      setRemovingBackground(true);
-      try {
-        if (!originalServiceImageUrl) setOriginalServiceImageUrl(newService.image_url);
-        
-        // Show loading message
-        setSuccessMsg('جاري معالجة الصورة وإزالة الخلفية...');
-        
-        // Use free background removal service
-        const result = await removeBackgroundWithFreeAPI(newService.image_url);
-        
-        if (!result.success) {
-          throw new Error(result.error || 'فشل في إزالة الخلفية');
-        }
-        
-        if (!result.imageData) {
-          throw new Error('لم يتم الحصول على صورة معالجة');
-        }
-        
-        // Convert base64 to file
-        const processedFile = base64ToFile(result.imageData, 'processed_image.png');
-        
-        // Upload to Supabase
-        const fileExt = processedFile.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('services')
-          .upload(fileName, processedFile, { upsert: true });
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage.from('services').getPublicUrl(fileName);
-        setNewService(prev => ({ ...prev, image_url: publicUrl }));
-        setRemoveBgSwitch(true);
-        setSuccessMsg('تم إزالة الخلفية بنجاح بذكاء اصطناعي متقدم!');
-      } catch (err: any) {
-        setRemoveBgSwitch(false);
-        // More specific error messages
-        if (err.message.includes('API')) {
-          setError(`خطأ في خدمة إزالة الخلفية: ${err.message}`);
-        } else if (err.message.includes('حجم الملف')) {
-          setError(`حجم الصورة كبير جداً: ${err.message}`);
-        } else {
-        setError(`تعذر إزالة الخلفية: ${err.message}`);
-        }
-      } finally {
-        setRemovingBackground(false);
-      }
-    } else {
-      // Revert to original in-session
-      if (originalServiceImageUrl) {
-        setNewService(prev => ({ ...prev, image_url: originalServiceImageUrl! }));
-      }
-      setRemoveBgSwitch(false);
-    }
-  };
-
-  // إزالة الخلفية باستخدام خدمة مجانية
-  async function removeBackgroundFromFile(file: File): Promise<File> {
-    const result = await removeBackgroundWithFreeAPI(file);
-    
-    if (!result.success || !result.imageData) {
-      throw new Error(result.error || 'فشل في إزالة الخلفية');
-    }
-    
-    return freeBase64ToFile(result.imageData, `${Date.now()}_bg_removed.png`);
-  }
-
-  // رافع صورة مع إزالة الخلفية ورفعها إلى Supabase
-  const handleImageUploadRemoveBg = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setRemovingBackground(true);
-    try {
-      if (!file.type.startsWith('image/')) throw new Error('الرجاء اختيار ملف صورة صالح');
-
-      // Show loading message
-      setSuccessMsg('جاري معالجة الصورة باستخدام Google Gemini...');
-
-      // قلل الحجم أولاً إذا لزم
-      const resized = await resizeImageIfNeeded(file, 2);
-      // أزل الخلفية باستخدام Google Gemini
-      const processed = await removeBackgroundFromFile(resized);
-
-      const fileExt = processed.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from('services')
-        .upload(fileName, processed, { upsert: true });
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from('services').getPublicUrl(fileName);
-      setNewService(prev => ({ ...prev, image_url: publicUrl }));
-      setSuccessMsg('تمت إزالة الخلفية ورفع الصورة بنجاح باستخدام Google Gemini!');
-    } catch (err: any) {
-      // More specific error messages
-      if (err.message.includes('API')) {
-        setError(`خطأ في خدمة Google Gemini: ${err.message}`);
-      } else if (err.message.includes('حجم الملف')) {
-        setError(`حجم الصورة كبير جداً: ${err.message}`);
-      } else {
-      setError(`تعذر إزالة الخلفية: ${err.message}`);
-      }
-    } finally {
-      setRemovingBackground(false);
-      // امسح قيمة المدخل حتى يمكن اختيار نفس الملف لاحقاً
-      event.target.value = '';
-    }
-  };
-
   useEffect(() => {
     const initialize = async () => {
       setIsLoading(true);
@@ -250,7 +118,6 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
         await checkAuth();
         await fetchData();
         await fetchStoreSettings();
-        await fetchLogoUrl();
         await fetchTestimonials();
       } catch (err: any) {
         toast.error(`خطأ أثناء التهيئة: ${err.message}`);
@@ -323,25 +190,6 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
       setBanners([]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchLogoUrl = async () => {
-    const { data } = supabase.storage.from('services').getPublicUrl('logo.svg');
-    if (data?.publicUrl) {
-      try {
-        const response = await fetch(data.publicUrl, { method: 'HEAD' });
-        if (response.ok) {
-          setLogoUrl(`${data.publicUrl}?t=${new Date().getTime()}`);
-        } else {
-          setLogoUrl(null);
-        }
-      } catch (fetchError) {
-        console.warn("لم يتم العثور على الشعار الحالي:", fetchError);
-        setLogoUrl(null);
-      }
-    } else {
-      setLogoUrl(null);
     }
   };
 
@@ -419,113 +267,6 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     }
   };
 
-  const handleSettingsImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-    type: 'logo' | 'favicon' | 'og_image'
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadingImage(true);
-    
-    try {
-      if (!file.type.startsWith('image/')) {
-        throw new Error('الرجاء اختيار ملف صورة صالح');
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${type}_${Date.now()}.${fileExt}`;
-
-      const { error: uploadError, data } = await supabase.storage.from('services').upload(fileName, file, {
-        cacheControl: '0',
-        upsert: true
-      });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from('services').getPublicUrl(fileName);
-
-      setStoreSettings(prev => ({
-        ...prev,
-        [type === 'logo' ? 'logo_url' : type === 'favicon' ? 'favicon_url' : 'og_image_url']: publicUrl
-      }));
-      setSuccessMsg(`تم رفع ${type} بنجاح!`);
-
-    } catch (err: any) {
-      setError(`خطأ في رفع الصورة: ${err.message}`);
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-    type: 'logo' | 'favicon' | 'og_image' | 'service' | 'banner'
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const uploadingStateSetters = {
-      logo: setUploadingLogo,
-      favicon: setUploadingFavicon,
-      og_image: setUploadingOgImage,
-      service: setUploadingImage,
-      banner: setUploadingBannerImage
-    };
-
-    const setUploading = uploadingStateSetters[type];
-    setUploading(true);
-    
-    try {
-      if (!file.type.startsWith('image/')) throw new Error('الرجاء اختيار ملف صورة صالح');
-      const maxSize = type === 'favicon' ? 0.5 * 1024 * 1024 : 2 * 1024 * 1024;
-      if (file.size > maxSize) {
-        throw new Error(`حجم الصورة يجب أن لا يتجاوز ${maxSize / (1024 * 1024)} ميجابايت`);
-      }
-      const fileExt = file.name.split('.').pop();
-      const fileName = type === 'logo' ? 'logo.svg' :
-        type === 'favicon' ? 'favicon.png' :
-        type === 'og_image' ? 'og-image.png' :
-        `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { error: uploadError } = await supabase.storage.from('services').upload(filePath, file, { upsert: true });
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from('services').getPublicUrl(filePath);
-
-      if (type === 'logo') {
-        setLogoUrl(publicUrl);
-        setStoreSettings(prev => ({ ...prev, logo_url: publicUrl }));
-      } else if (type === 'favicon') {
-        setStoreSettings(prev => ({ ...prev, favicon_url: publicUrl }));
-      } else if (type === 'og_image') {
-        setStoreSettings(prev => ({ ...prev, og_image_url: publicUrl }));
-      } else if (type === 'service') {
-        setNewService(prev => ({ ...prev, image_url: publicUrl }));
-      } else if (type === 'banner') {
-        setNewBanner(prev => ({ ...prev, image_url: publicUrl }));
-      }
-      setSuccessMsg("تم رفع الصورة بنجاح!");
-    } catch (err: any) {
-      setError(`خطأ في رفع الصورة: ${err.message}`);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleAddKeyword = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && keywordInput.trim()) {
-      e.preventDefault();
-      setKeywords(prev => [...prev, keywordInput.trim()]);
-      setKeywordInput('');
-    }
-  };
-
-  const handleRemoveKeyword = (indexToRemove: number) => {
-    setKeywords(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
-    
   // دالة لضغط وتصغير الصورة إذا تجاوزت 2 ميجا
   async function resizeImageIfNeeded(file: File, maxSizeMB = 2): Promise<File> {
     if (file.size <= maxSizeMB * 1024 * 1024) return file;
@@ -575,7 +316,9 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     if (!file) return;
 
     const uploadingState = type === 'service' ? setUploadingImage : setUploadingBannerImage;
-    const setNewState = type === 'service' ? setNewService : setNewBanner;
+    const setNewState = (type === 'service' 
+      ? setNewService 
+      : setNewBanner) as React.Dispatch<React.SetStateAction<any>>;
 
     uploadingState(true);
     try {
@@ -593,12 +336,12 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
 
       const { data: { publicUrl } } = supabase.storage.from('services').getPublicUrl(filePath);
       
-      setNewState(prev => ({ ...prev, image_url: publicUrl }));
+      setNewState((prev: any) => ({ ...prev, image_url: publicUrl }));
       setSuccessMsg("تم رفع الصورة بنجاح!");
 
     } catch (err: any) {
       setError(`خطأ في رفع الصورة: ${err.message}`);
-      setNewState(prev => ({ ...prev, image_url: '' }));
+      setNewState((prev: any) => ({ ...prev, image_url: '' }));
     } finally {
       uploadingState(false);
     }
@@ -1288,14 +1031,14 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                         setIsLoading(false);
                                     }
                                 }}
-                                className="w-5 h-5 accent-blue-500 cursor-pointer"
+                                className="w-5 h-5 accent-[#1c594e] cursor-pointer"
                             />
                         </div>
                     </div>
                     
                     <div className="mb-8">
-                        <label htmlFor="testimonial-upload" className="w-full flex items-center justify-center gap-2 p-4 rounded-md border-2 border-dashed border-gray-600 cursor-pointer hover:bg-gray-700/50 hover:border-blue-500 transition-colors">
-                            <Upload className="w-6 h-6 text-blue-400"/>
+                        <label htmlFor="testimonial-upload" className="w-full flex items-center justify-center gap-2 p-4 rounded-md border-2 border-dashed border-gray-600 cursor-pointer hover:bg-gray-700/50 hover:border-[#1c594e] transition-colors">
+                            <Upload className="w-6 h-6 text-[#26bd7e]"/>
                             <span className="text-white font-semibold">
                                 {uploadingTestimonialImage ? 'جاري الرفع...' : 'انقر هنا لرفع صورة رأي جديد'}
                             </span>
@@ -1359,7 +1102,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                     type="url"
                                     value={storeSettings.facebook_url || ''}
                                     onChange={(e) => setStoreSettings({ ...storeSettings, facebook_url: e.target.value })}
-                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                                     placeholder="https://facebook.com/..."
                                     />
                                 </div>
@@ -1369,7 +1112,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                     type="url"
                                     value={storeSettings.instagram_url || ''}
                                     onChange={(e) => setStoreSettings({ ...storeSettings, instagram_url: e.target.value })}
-                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                                     placeholder="https://instagram.com/..."
                                     />
                                 </div>
@@ -1379,7 +1122,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                     type="url"
                                     value={storeSettings.twitter_url || ''}
                                     onChange={(e) => setStoreSettings({ ...storeSettings, twitter_url: e.target.value })}
-                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                                     placeholder="https://twitter.com/..."
                                     />
                                 </div>
@@ -1389,7 +1132,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                     type="url"
                                     value={storeSettings.snapchat_url || ''}
                                     onChange={(e) => setStoreSettings({ ...storeSettings, snapchat_url: e.target.value })}
-                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                                     placeholder="https://snapchat.com/..."
                                     />
                                 </div>
@@ -1399,7 +1142,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                     type="url"
                                     value={storeSettings.tiktok_url || ''}
                                     onChange={(e) => setStoreSettings({ ...storeSettings, tiktok_url: e.target.value })}
-                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                                     placeholder="https://tiktok.com/..."
                                     />
                                 </div>
@@ -1409,7 +1152,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="bg-blue-600 text-white px-5 py-2.5 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-bold disabled:opacity-50"
+                                    className="bg-[#1c594e] text-white px-5 py-2.5 rounded-md hover:bg-[#15453c] transition-colors flex items-center justify-center gap-2 font-bold disabled:opacity-50"
                                 >
                                     <Save className="w-5 h-5" />
                                     {isLoading ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
@@ -1426,11 +1169,11 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                   <div className="flex border-b border-gray-700 mb-6">
                     <button
                       onClick={() => {setBannersSubTab('image'); setNewBanner({type: 'image'})}}
-                      className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${ bannersSubTab === 'image' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                      className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${ bannersSubTab === 'image' ? 'bg-[#1c594e] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                     >بانرات صور</button>
                     <button
                       onClick={() => {setBannersSubTab('text'); setNewBanner({type: 'text'})}}
-                      className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${ bannersSubTab === 'text' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                      className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${ bannersSubTab === 'text' ? 'bg-[#1c594e] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                     >بانرات نصية</button>
                   </div>
                   
@@ -1442,7 +1185,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           placeholder="عنوان البانر"
                           value={newBanner.title || ''}
                           onChange={(e) => setNewBanner({ ...newBanner, type: 'text', title: e.target.value })}
-                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                           required
                           disabled={isLoading}
                         />
@@ -1451,15 +1194,15 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           value={newBanner.description || ''}
                           onChange={(e) => setNewBanner({ ...newBanner, type: 'text', description: e.target.value })}
                           rows={3}
-                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                           disabled={isLoading}
                         />
                       </>
                     )}
                     {bannersSubTab === 'image' && (
                       <div>
-                        <label htmlFor="banner-image-upload" className={`w-full flex flex-col items-center justify-center p-4 rounded-md border-2 border-dashed border-gray-600 cursor-pointer hover:bg-gray-700/50 hover:border-blue-500 transition-colors ${uploadingBannerImage || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                            <Upload className={`w-8 h-8 mb-2 text-blue-400 ${uploadingBannerImage ? 'animate-pulse' : ''}`} />
+                        <label htmlFor="banner-image-upload" className={`w-full flex flex-col items-center justify-center p-4 rounded-md border-2 border-dashed border-gray-600 cursor-pointer hover:bg-gray-700/50 hover:border-[#1c594e] transition-colors ${uploadingBannerImage || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <Upload className={`w-8 h-8 mb-2 text-[#26bd7e] ${uploadingBannerImage ? 'animate-pulse' : ''}`} />
                             <span className="text-white font-semibold">{uploadingBannerImage ? 'جاري رفع الصورة...' : (newBanner.image_url ? 'تغيير الصورة' : 'اختر صورة للبانر')}</span>
                             <span className="text-xs text-gray-400 mt-1">المقاس الموصى به: 1920x500 بكسل</span>
                         </label>
@@ -1482,7 +1225,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                     )}
 
                     <div className="flex gap-3 pt-2">
-                      <button type="submit" className="flex-grow bg-blue-600 text-white py-2.5 px-4 rounded-md font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50" disabled={isLoading}>
+                      <button type="submit" className="flex-grow bg-[#1c594e] text-white py-2.5 px-4 rounded-md font-bold hover:bg-[#15453c] transition-colors flex items-center justify-center gap-2 disabled:opacity-50" disabled={isLoading}>
                         {editingBanner ? <><Save size={20} /> حفظ التعديلات</> : <><Plus size={20} /> إضافة بانر</>}
                       </button>
                       {editingBanner && (
@@ -1498,7 +1241,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                     {!isLoading && banners.filter(b => b.type === bannersSubTab).length === 0 && <div className="col-span-full text-gray-400 text-center py-8">لا توجد بانرات من هذا النوع.</div>}
                     
                     {banners.filter(b => b.type === bannersSubTab).map((banner) => (
-                      <div key={banner.id} className={`relative group border border-gray-700 rounded-lg bg-gray-900/50 shadow-lg overflow-hidden ${editingBanner === banner.id ? `ring-2 ring-blue-500` : ''}`}>
+                      <div key={banner.id} className={`relative group border border-gray-700 rounded-lg bg-gray-900/50 shadow-lg overflow-hidden ${editingBanner === banner.id ? `ring-2 ring-[#1c594e]` : ''}`}>
                         {banner.type === 'image' && banner.image_url ? (
                           <img src={banner.image_url} alt={banner.title || 'صورة البانر'} className="w-full h-32 object-cover"/>
                         ) : (
@@ -1508,7 +1251,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           </div>
                         )}
                         <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => !isLoading && handleEditBanner(banner)} title="تعديل" className="bg-blue-600 text-white p-2 rounded-full disabled:opacity-50" disabled={editingBanner === banner.id || isLoading}><Edit size={16} /></button>
+                          <button onClick={() => !isLoading && handleEditBanner(banner)} title="تعديل" className="bg-[#1c594e] text-white p-2 rounded-full disabled:opacity-50" disabled={editingBanner === banner.id || isLoading}><Edit size={16} /></button>
                           <button onClick={() => !isLoading && handleDeleteBanner(banner.id)} title="حذف" className="bg-red-600 text-white p-2 rounded-full disabled:opacity-50" disabled={isLoading}><Trash2 size={16} /></button>
                         </div>
                       </div>
@@ -1522,22 +1265,22 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
               <div className="bg-gray-800/50 border border-gray-700 rounded-lg">
                 <div className="p-6">
                   <div className="flex border-b border-gray-700 mb-6">
-                    <button onClick={() => setProductsSubTab('services')} className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${productsSubTab === 'services' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>المنتجات</button>
-                    <button onClick={() => setProductsSubTab('categories')} className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${productsSubTab === 'categories' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>الأقسام</button>
-                    <button onClick={() => setProductsSubTab('subcategories')} className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${productsSubTab === 'subcategories' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>التصنيفات الفرعية</button>
+                    <button onClick={() => setProductsSubTab('services')} className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${productsSubTab === 'services' ? 'bg-[#1c594e] text-white' : 'text-gray-400 hover:bg-gray-700'}`}>المنتجات</button>
+                    <button onClick={() => setProductsSubTab('categories')} className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${productsSubTab === 'categories' ? 'bg-[#1c594e] text-white' : 'text-gray-400 hover:bg-gray-700'}`}>الأقسام</button>
+                    <button onClick={() => setProductsSubTab('subcategories')} className={`flex-1 py-2 font-bold transition-colors rounded-t-md ${productsSubTab === 'subcategories' ? 'bg-[#1c594e] text-white' : 'text-gray-400 hover:bg-gray-700'}`}>التصنيفات الفرعية</button>
                   </div>
 
                   {productsSubTab === 'services' && (
                     <>
                       <form onSubmit={editingService ? handleUpdateService : handleAddService} className="mb-8 space-y-4" id="service-form">
-                        <input type="text" placeholder="عنوان المنتج" value={newService.title} onChange={(e) => setNewService({ ...newService, title: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required disabled={isLoading}/>
-                        <textarea placeholder="وصف المنتج بالعربية (اختياري)" value={newService.description} onChange={(e) => setNewService({ ...newService, description: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isLoading}/>
-                        <textarea placeholder="وصف المنتج بالإنجليزية (اختياري)" value={newService.description_en} onChange={(e) => setNewService({ ...newService, description_en: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isLoading}/>
+                        <input type="text" placeholder="عنوان المنتج" value={newService.title} onChange={(e) => setNewService({ ...newService, title: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" required disabled={isLoading}/>
+                        <textarea placeholder="وصف المنتج بالعربية (اختياري)" value={newService.description} onChange={(e) => setNewService({ ...newService, description: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading}/>
+                        <textarea placeholder="وصف المنتج بالإنجليزية (اختياري)" value={newService.description_en} onChange={(e) => setNewService({ ...newService, description_en: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading}/>
                         
                         
                         <div>
-                            <label htmlFor="image-upload" className={`w-full flex flex-col items-center justify-center p-4 rounded-md border-2 border-dashed border-gray-600 cursor-pointer hover:bg-gray-700/50 hover:border-blue-500 transition-colors ${uploadingImage || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                <Upload className={`w-8 h-8 mb-2 text-blue-400 ${uploadingImage ? 'animate-pulse' : ''}`} />
+                            <label htmlFor="image-upload" className={`w-full flex flex-col items-center justify-center p-4 rounded-md border-2 border-dashed border-gray-600 cursor-pointer hover:bg-gray-700/50 hover:border-[#1c594e] transition-colors ${uploadingImage || isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                <Upload className={`w-8 h-8 mb-2 text-[#26bd7e] ${uploadingImage ? 'animate-pulse' : ''}`} />
                                 <span className="text-white font-semibold">{uploadingImage ? 'جاري رفع الصورة...' : (newService.image_url ? 'تغيير الصورة الرئيسية' : 'اختر صورة المنتج الرئيسية')}</span>
                                 <span className="text-xs text-gray-400 mt-1">المقاس الموصى به: أبعاد أفقية (5:4)</span>
                             </label>
@@ -1547,35 +1290,19 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                         {/* مفتاح تحويل الصورة إلى خلفية شفافة أسفل المعاينة */}
 
                         {newService.image_url && !uploadingImage && (
-                          <>
-                            <div className="mt-3 flex items-center justify-center gap-4 bg-gray-900/50 p-2 rounded border border-gray-700">
-                              <img src={newService.image_url} alt="معاينة" className="w-16 h-16 object-cover rounded border border-gray-600" />
-                              <span className="text-gray-400 text-xs">الصورة الحالية/الجديدة</span>
-                              <button type="button" onClick={() => { setNewService({...newService, image_url: ''}); setRemoveBgSwitch(false); setOriginalServiceImageUrl(null); }} className="text-red-500 hover:text-red-400 p-1" title="إزالة الصورة"><X size={16}/></button>
-                            </div>
-                            <div className="mt-2 flex items-center justify-center">
-                              <label className="flex items-center gap-2 text-xs text-gray-300 select-none">
-                                {/* صندوق تحديد بسيط على يمين النص مع RTL */}
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 accent-emerald-500 rounded border border-gray-500 bg-gray-700 focus:ring-0"
-                                  checked={removeBgSwitch}
-                                  onChange={(e) => handleToggleRemoveBgSwitch(e.target.checked)}
-                                  disabled={removingBackground || isLoading}
-                                />
-                                <span className="leading-none">إزالة الخلفية (ميزة تجريبية)</span>
-                                {removingBackground && <span className="text-[10px] text-gray-400">جاري المعالجة...</span>}
-                              </label>
-                            </div>
-                          </>
+                          <div className="mt-3 flex items-center justify-center gap-4 bg-gray-900/50 p-2 rounded border border-gray-700">
+                            <img src={newService.image_url} alt="معاينة" className="w-16 h-16 object-cover rounded border border-gray-600" />
+                            <span className="text-gray-400 text-xs">الصورة الحالية/الجديدة</span>
+                            <button type="button" onClick={() => { setNewService({...newService, image_url: ''}); }} className="text-red-500 hover:text-red-400 p-1" title="إزالة الصورة"><X size={16}/></button>
+                          </div>
                         )}
                         
-                        <select value={selectedCategory} onChange={(e) => { setSelectedCategory(e.target.value); setSelectedSubcategory(''); }} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none" required disabled={isLoading || categories.length === 0}>
+                        <select value={selectedCategory} onChange={(e) => { setSelectedCategory(e.target.value); setSelectedSubcategory(''); }} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] appearance-none" required disabled={isLoading || categories.length === 0}>
                           <option value="" disabled className="text-gray-400">-- اختر القسم --</option>
                           {categories.map((category) => (<option key={category.id} value={category.id} className="bg-gray-800 text-white">{category.name}</option>))}
                           {categories.length === 0 && <option disabled>لا توجد أقسام، يرجى إضافة قسم أولاً.</option>}
                         </select>
-                        <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none" disabled={isLoading || !selectedCategory}>
+                        <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] appearance-none" disabled={isLoading || !selectedCategory}>
                           <option value="" className="text-gray-400">-- اختر التصنيف الفرعي (اختياري) --</option>
                           {subcategories
                             .filter(sc => sc.category_id === selectedCategory)
@@ -1588,24 +1315,24 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                         </select>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <input type="text" placeholder="السعر الأصلي" value={newService.price} onChange={(e) => setNewService({ ...newService, price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isLoading} required/>
-                          <input type="text" placeholder="سعر التخفيض (اختياري)" value={newService.sale_price} onChange={(e) => setNewService({ ...newService, sale_price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isLoading}/>
+                          <input type="text" placeholder="السعر الأصلي" value={newService.price} onChange={(e) => setNewService({ ...newService, price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading} required/>
+                          <input type="text" placeholder="سعر التخفيض (اختياري)" value={newService.sale_price} onChange={(e) => setNewService({ ...newService, sale_price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading}/>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-md">
-                                <input type="checkbox" id="is_featured" checked={newService.is_featured || false} onChange={(e) => setNewService({ ...newService, is_featured: e.target.checked })} className="h-4 w-4 accent-blue-500"/>
+                                <input type="checkbox" id="is_featured" checked={newService.is_featured || false} onChange={(e) => setNewService({ ...newService, is_featured: e.target.checked })} className="h-4 w-4 accent-[#1c594e]"/>
                                 <label htmlFor="is_featured" className="text-white">أحدث العروض</label>
                             </div>
                             <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-md">
-                                <input type="checkbox" id="is_best_seller" checked={newService.is_best_seller || false} onChange={(e) => setNewService({ ...newService, is_best_seller: e.target.checked })} className="h-4 w-4 accent-blue-500"/>
+                                <input type="checkbox" id="is_best_seller" checked={newService.is_best_seller || false} onChange={(e) => setNewService({ ...newService, is_best_seller: e.target.checked })} className="h-4 w-4 accent-[#1c594e]"/>
                                 <label htmlFor="is_best_seller" className="text-white">الأكثر مبيعًا</label>
                             </div>
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-300 mb-1">صور إضافية للمنتج <span className="text-gray-400">(اختياري)</span></label>
-                          <input type="file" accept="image/*" multiple onChange={handleGalleryUpload} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" disabled={uploadingImage || isLoading}/>
+                          <input type="file" accept="image/*" multiple onChange={handleGalleryUpload} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#1c594e]/10 file:text-[#1c594e] hover:file:bg-[#1c594e]/20" disabled={uploadingImage || isLoading}/>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {newService.gallery && newService.gallery.map((img, idx) => (
                               <div key={img} className="relative group">
@@ -1621,7 +1348,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                         </div>
 
                         <div className="flex gap-3 pt-2">
-                          <button type="submit" className="flex-grow bg-blue-600 text-white py-2.5 px-4 rounded-md font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50" disabled={isLoading || (editingService ? false : !selectedCategory)}>
+                          <button type="submit" className="flex-grow bg-[#1c594e] text-white py-2.5 px-4 rounded-md font-bold hover:bg-[#15453c] transition-colors flex items-center justify-center gap-2 disabled:opacity-50" disabled={isLoading || (editingService ? false : !selectedCategory)}>
                             {editingService ? <><Save size={20} /> حفظ التعديلات</> : <><Plus size={20} /> إضافة المنتج</>}
                           </button>
                           {editingService && (
@@ -1635,7 +1362,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                       <h3 className="text-lg font-semibold mb-4 text-white border-b border-gray-600 pb-2">المنتجات الحالية</h3>
                       <div className="space-y-3">
                         {services.map((service) => (
-                          <div key={service.id} className={`p-4 rounded-md bg-gray-900/50 border border-gray-700 transition-all ${editingService === service.id ? 'ring-2 ring-blue-500' : ''}`}>
+                          <div key={service.id} className={`p-4 rounded-md bg-gray-900/50 border border-gray-700 transition-all ${editingService === service.id ? 'ring-2 ring-[#1c594e]' : ''}`}>
                             <div className="flex items-center gap-4">
                               {service.image_url && <img src={service.image_url} alt={service.title} className="w-16 h-16 object-cover rounded-md border border-gray-600 flex-shrink-0"/>}
                               <div className="flex-1 overflow-hidden">
@@ -1653,7 +1380,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => !isLoading && handleEditService(service)} title="تعديل" className="text-blue-400 hover:text-blue-300 p-2 disabled:opacity-50" disabled={editingService === service.id || isLoading}><Edit size={18} /></button>
+                                <button onClick={() => !isLoading && handleEditService(service)} title="تعديل" className="text-[#26bd7e] hover:text-[#1c594e] p-2 disabled:opacity-50" disabled={editingService === service.id || isLoading}><Edit size={18} /></button>
                                 <button onClick={() => !isLoading && handleDeleteService(service.id)} title="حذف" className="text-red-500 hover:text-red-400 p-2 disabled:opacity-50" disabled={isLoading}><Trash2 size={18} /></button>
                               </div>
                             </div>
@@ -1670,7 +1397,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                         <select
                           value={newSubcategory.category_id}
                           onChange={(e) => setNewSubcategory({ ...newSubcategory, category_id: e.target.value })}
-                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] appearance-none"
                           required
                           disabled={isLoading || categories.length === 0}
                         >
@@ -1684,7 +1411,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           placeholder="اسم التصنيف الفرعي (عربي)"
                           value={newSubcategory.name_ar}
                           onChange={(e) => setNewSubcategory({ ...newSubcategory, name_ar: e.target.value })}
-                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                           required
                           disabled={isLoading}
                         />
@@ -1693,13 +1420,13 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           value={newSubcategory.description_ar}
                           onChange={(e) => setNewSubcategory({ ...newSubcategory, description_ar: e.target.value })}
                           rows={3}
-                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]"
                           disabled={isLoading}
                         />
                         <div className="flex gap-3">
                           <button
                             type="submit"
-                            className="flex-grow bg-blue-600 text-white py-2.5 px-4 rounded-md font-bold hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                            className="flex-grow bg-[#1c594e] text-white py-2.5 px-4 rounded-md font-bold hover:bg-[#15453c] flex items-center justify-center gap-2 disabled:opacity-50"
                             disabled={isLoading}
                           >
                             {editingSubcategory ? <><Save size={20} /> حفظ التعديلات</> : <><Plus size={20} /> إضافة تصنيف فرعي</>}
@@ -1723,7 +1450,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                         {subcategories.map((sc) => (
                           <div
                             key={sc.id}
-                            className={`p-4 rounded-md bg-gray-900/50 border border-gray-700 flex justify-between items-center transition-all ${editingSubcategory === sc.id ? 'ring-2 ring-blue-500' : ''}`}
+                            className={`p-4 rounded-md bg-gray-900/50 border border-gray-700 flex justify-between items-center transition-all ${editingSubcategory === sc.id ? 'ring-2 ring-[#1c594e]' : ''}`}
                           >
                             <div className="flex-1 overflow-hidden">
                               <h4 className="font-bold text-white text-lg truncate">{(sc as any).name_ar || (sc as any).name}</h4>
@@ -1736,7 +1463,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                               <button
                                 onClick={() => !isLoading && handleEditSubcategory(sc)}
                                 title="تعديل"
-                                className="text-blue-400 hover:text-blue-300 p-2 disabled:opacity-50"
+                                className="text-[#26bd7e] hover:text-[#1c594e] p-2 disabled:opacity-50"
                                 disabled={editingSubcategory === sc.id || isLoading}
                               >
                                 <Edit size={18} />
@@ -1762,10 +1489,10 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                   {productsSubTab === 'categories' && (
                     <>
                       <form onSubmit={editingCategory ? handleUpdateCategory : handleAddCategory} className="mb-8 space-y-4" id="category-form">
-                        <input type="text" placeholder="اسم القسم" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" required disabled={isLoading}/>
-                        <textarea placeholder="وصف القسم (اختياري)" value={newCategory.description} onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isLoading}/>
+                        <input type="text" placeholder="اسم القسم" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" required disabled={isLoading}/>
+                        <textarea placeholder="وصف القسم (اختياري)" value={newCategory.description} onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading}/>
                         <div className="flex gap-3">
-                          <button type="submit" className="flex-grow bg-blue-600 text-white py-2.5 px-4 rounded-md font-bold hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50" disabled={isLoading}>
+                          <button type="submit" className="flex-grow bg-[#1c594e] text-white py-2.5 px-4 rounded-md font-bold hover:bg-[#15453c] flex items-center justify-center gap-2 disabled:opacity-50" disabled={isLoading}>
                             {editingCategory ? <><Save size={20} /> حفظ التعديلات</> : <><Plus size={20} /> إضافة قسم</>}
                           </button>
                           {editingCategory && (
@@ -1779,13 +1506,13 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                       <h3 className="text-lg font-semibold mb-4 text-white border-b border-gray-600 pb-2">الأقسام الحالية</h3>
                       <div className="space-y-3">
                         {categories.map((category) => (
-                          <div key={category.id} className={`p-4 rounded-md bg-gray-900/50 border border-gray-700 flex justify-between items-center transition-all ${editingCategory === category.id ? 'ring-2 ring-blue-500' : ''}`}>
+                          <div key={category.id} className={`p-4 rounded-md bg-gray-900/50 border border-gray-700 flex justify-between items-center transition-all ${editingCategory === category.id ? 'ring-2 ring-[#1c594e]' : ''}`}>
                             <div className="flex-1 overflow-hidden">
                               <h4 className="font-bold text-white text-lg truncate">{category.name}</h4>
                               {category.description && <p className="text-gray-400 text-sm mt-1 line-clamp-2">{category.description}</p>}
                             </div>
                             <div className="flex gap-2">
-                              <button onClick={() => !isLoading && handleEditCategory(category)} title="تعديل" className="text-blue-400 hover:text-blue-300 p-2 disabled:opacity-50" disabled={editingCategory === category.id || isLoading}><Edit size={18} /></button>
+                              <button onClick={() => !isLoading && handleEditCategory(category)} title="تعديل" className="text-[#26bd7e] hover:text-[#1c594e] p-2 disabled:opacity-50" disabled={editingCategory === category.id || isLoading}><Edit size={18} /></button>
                               <button onClick={() => !isLoading && handleDeleteCategory(category.id)} title="حذف" className="text-red-500 hover:text-red-400 p-2 disabled:opacity-50" disabled={isLoading}><Trash2 size={18} /></button>
                               <button
                                 onClick={() => {

@@ -310,7 +310,7 @@ export default function ProductDetails() {
                         addToCart({
                           id: service.id,
                           title: service.title,
-                          price: service.sale_price || service.price,
+                          price: service.sale_price || service.price || '0',
                           imageUrl: service.image_url || ''
                         });
                         toast.success('تمت إضافة المنتج إلى السلة');
