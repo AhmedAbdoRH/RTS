@@ -1,0 +1,19 @@
+# Netlify configuration for Vite + React + TypeScript project
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Configure Netlify Functions bundler (optional but recommended for edge function TypeScript support)
+[functions]
+  node_bundler = "esbuild"
+
+# Register the Edge Function to run for every incoming request
+[[edge_functions]]
+  function = "prerender"
+  path = "/*"
+
+# SPA routing fallback – serve index.html for unmatched routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

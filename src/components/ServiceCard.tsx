@@ -1,0 +1,136 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { MessageCircle, ShoppingCart, Check } from 'lucide-react';
+import { useCart } from '../contexts/CartContext';
+import { useLanguage } from '../contexts/LanguageContext';
+
+interface ProductCardProps {
+  title: string;
+  description: string;
+  description_en?: string | null;
+  imageUrl: string;
+  price: string;
+  salePrice?: string | null;
+  id: string | number;
+}
+
+export default function ProductCard({ title, description, description_en, imageUrl, price, salePrice, id }: ProductCardProps) {
+  /**
+   * Handles the click event for the "Contact Now" button.
+   * Prevents the default link behavior and opens a WhatsApp chat
+   * with a pre-filled message including product details.
+   * @param e - The mouse event.
+   */
+  const { t, currentLanguage } = useLanguage();
+  
+  const handleContactClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent the default link behavior
+    // Construct the URL for the specific product page
+    const productUrl = `${window.location.origin}/product/${id}`;
+    // Create the pre-filled message for WhatsApp
+    const message = t('whatsapp.orderMessage') + `\n${title}\n${t('products.price')}: ${price}\n${productUrl}`;
+    // Open the WhatsApp chat link in a new tab
+    window.open(`https://wa.me/201557777587?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  const { addToCart } = useCart();
+  const [isAdding, setIsAdding] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsAdding(true);
+    
+    // Add to cart
+    addToCart({
+      title,
+      price: salePrice || price, // Use sale price if available
+      imageUrl,
+    });
+    
+    // Show added feedback
+    setIsAdded(true);
+    
+    // Reset button state after animation
+    setTimeout(() => {
+      setIsAdding(false);
+      setTimeout(() => setIsAdded(false), 2000);
+    }, 1000);
+  };
+
+  return (
+    <div className="group relative bg-white/5 backdrop-blur-md rounded-lg border border-[#ffd453]/10 overflow-hidden transition-all duration-150 hover:scale-[1.02] hover:bg-white/10">
+      <Link to={`/product/${id}`} className="block">
+        <div className="relative aspect-[4/3] w-full">
+          <img
+            src={imageUrl}
+            alt={title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1c594e]/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-150" />
+        </div>
+        <div className="p-6">
+          <h3 className="text-xl font-bold mb-2 text-[#ffd453] flex items-center gap-2">
+            {title}
+          </h3>
+          <p className="text-white/70 mb-4">
+            {(currentLanguage === 'en' && description_en && description_en.trim()) 
+              ? description_en.split(/\r?\n/)[0] 
+              : description.split(/\r?\n/)[0]}
+          </p>
+        </div>
+      </Link>
+      
+      <div className="px-6 pb-6 pt-0">
+        <div className="flex justify-between items-center">
+          {/* Left Side - Chat Button and Cart Button */}
+          <div className="flex gap-2 items-center">
+            {/* Contact Button */}
+            <button
+              onClick={handleContactClick}
+              className="blue-button blue-order-button flex items-center gap-2"
+            >
+              <div className="blue-button-border"></div>
+              <MessageCircle className="h-5 w-5" />
+              <span className="hidden sm:inline">{t('products.orderNow')}</span>
+            </button>
+            
+            {/* Add to Cart Button */}
+            <button
+              onClick={handleAddToCart}
+              disabled={isAdding || isAdded}
+              className={`p-2 flex items-center justify-center rounded-md transition-all duration-300 ${
+                isAdded 
+                  ? 'bg-[#26bd7e] text-white' 
+                  : 'bg-[#ffd453] hover:brightness-110 text-[#1c594e]'
+              } ${isAdding ? 'opacity-75' : ''}`}
+              title={isAdded ? 'Added' : 'Add to Cart'}
+            >
+              {isAdding ? (
+                <div className="w-5 h-5 border-2 border-[#1c594e] border-t-transparent rounded-full animate-spin"></div>
+              ) : isAdded ? (
+                <Check className="h-5 w-5" />
+              ) : (
+                <ShoppingCart className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+          
+          {/* Price - Far Right */}
+          <div className="flex flex-col items-end">
+            {salePrice ? (
+              <>
+                <span className="font-bold text-lg text-[#ffd453]">{salePrice} EGP</span>
+                <span className="text-sm text-white/50 line-through">{price} EGP</span>
+              </>
+            ) : (
+              <span className="font-bold text-lg text-[#ffd453]">{price} EGP</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
