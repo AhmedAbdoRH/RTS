@@ -85,7 +85,12 @@ export const en = {
     orderNow: 'Order Now',
     contactOrder: 'Contact us to Order',
     alsoAvailable: 'Also Available',
+    startsFrom: 'Starts from',
+    size: 'Size',
   },
+  
+  // Currency
+  currency: 'EGP',
 
   // Cart
   cart: {

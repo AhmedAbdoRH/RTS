@@ -37,7 +37,7 @@ export default function CategoryProducts() {
       // Fetch services for this category
       const { data: servicesData, error: servicesError } = await supabase
         .from('services')
-        .select('*')
+        .select('*, product_sizes(*)')
         .eq('category_id', categoryId);
 
       if (servicesError) throw servicesError;
@@ -47,6 +47,22 @@ export default function CategoryProducts() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getMinPrice = (service: Service): string | undefined => {
+    if (!service.has_multiple_sizes || !service.product_sizes || service.product_sizes.length === 0) {
+      return undefined;
+    }
+    
+    const prices = service.product_sizes.map(size => {
+      const priceStr = size.sale_price || size.price;
+      if (!priceStr) return Infinity;
+      const numericPrice = parseFloat(priceStr.replace(/[^0-9.]/g, ''));
+      return isNaN(numericPrice) ? Infinity : numericPrice;
+    });
+    
+    const min = Math.min(...prices);
+    return min === Infinity ? undefined : min.toString();
   };
 
   if (isLoading) {
@@ -114,6 +130,8 @@ export default function CategoryProducts() {
                   imageUrl={service.image_url || ''}
                   price={service.price || ''}
                   salePrice={service.sale_price || null}
+                  hasMultipleSizes={service.has_multiple_sizes}
+                  minPrice={getMinPrice(service)}
                 />
               ))}
             </div>

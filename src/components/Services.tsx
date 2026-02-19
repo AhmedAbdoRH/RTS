@@ -44,7 +44,8 @@ export default function Services() {
         .from('services')
         .select(`
           *,
-          category:categories(*)
+          category:categories(*),
+          product_sizes(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -77,6 +78,22 @@ export default function Services() {
     
     return services.filter(service => service.category_id === selectedCategory);
   }, [selectedCategory, services]);
+
+  const getMinPrice = (service: Service): string | undefined => {
+    if (!service.has_multiple_sizes || !service.product_sizes || service.product_sizes.length === 0) {
+      return undefined;
+    }
+    
+    const prices = service.product_sizes.map(size => {
+      const priceStr = size.sale_price || size.price;
+      if (!priceStr) return Infinity;
+      const numericPrice = parseFloat(priceStr.replace(/[^0-9.]/g, ''));
+      return isNaN(numericPrice) ? Infinity : numericPrice;
+    });
+    
+    const min = Math.min(...prices);
+    return min === Infinity ? undefined : min.toString();
+  };
 
   if (isLoading) {
     return (
@@ -253,6 +270,8 @@ export default function Services() {
                     imageUrl={service.image_url || ''}
                     price={service.price || ''}
                     salePrice={service.sale_price || null}
+                    hasMultipleSizes={service.has_multiple_sizes}
+                    minPrice={getMinPrice(service)}
                   />
                 </motion.div>
               ))

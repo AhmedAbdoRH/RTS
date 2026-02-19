@@ -87,7 +87,12 @@ export const ar = {
     moreDetails: 'المزيد من التفاصيل',
     contactOrder: 'تواصل معنا للطلب',
     alsoAvailable: 'متوفر لدينا أيضاً',
+    startsFrom: 'يبدأ من',
+    size: 'المقاس',
   },
+  
+  // Currency
+  currency: 'ج.م',
 
   // Cart
   cart: {

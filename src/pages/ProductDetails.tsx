@@ -86,12 +86,28 @@ export default function ProductDetails() {
     }
   };
 
+  const getMinPrice = (service: Service): string | undefined => {
+    if (!service.has_multiple_sizes || !service.product_sizes || service.product_sizes.length === 0) {
+      return undefined;
+    }
+    
+    const prices = service.product_sizes.map(size => {
+      const priceStr = size.sale_price || size.price;
+      if (!priceStr) return Infinity;
+      const numericPrice = parseFloat(priceStr.replace(/[^0-9.]/g, ''));
+      return isNaN(numericPrice) ? Infinity : numericPrice;
+    });
+    
+    const min = Math.min(...prices);
+    return min === Infinity ? undefined : min.toString();
+  };
+
   const fetchSuggested = async () => {
     if (!service) return;
     
     const { data } = await supabase
       .from('services')
-      .select('*')
+      .select('*, product_sizes(*)')
       .eq('category_id', service.category_id) // Filter by the same category
       .neq('id', id) // Exclude current product
       .limit(10);
@@ -316,18 +332,18 @@ export default function ProductDetails() {
                     </div>
                   )}
 
-                  <div className="text-2xl font-bold text-[#ffd453] mb-6 text-right">
+                    <div className="text-2xl font-bold text-[#ffd453] mb-6 text-right">
                     {(selectedSize ? selectedSize.sale_price : service.sale_price) ? (
                       <div className="flex flex-col items-end">
                         <span className="text-2xl text-[#ffd453]">
-                          {selectedSize ? selectedSize.sale_price : service.sale_price} ج
+                          {selectedSize ? selectedSize.sale_price : service.sale_price} {t('currency') || 'ج.م'}
                         </span>
                         <span className="text-lg text-white/40 line-through">
-                          {selectedSize ? selectedSize.price : service.price} ج
+                          {selectedSize ? selectedSize.price : service.price} {t('currency') || 'ج.م'}
                         </span>
                       </div>
                     ) : (
-                      <span>{selectedSize ? selectedSize.price : service.price} ج</span>
+                      <span>{selectedSize ? selectedSize.price : service.price} {t('currency') || 'ج.م'}</span>
                     )}
                   </div>
                   <div className="flex gap-4 items-center">
@@ -401,13 +417,18 @@ export default function ProductDetails() {
                   />
                   <div className="mt-2 text-sm md:text-base font-bold text-secondary truncate text-right">{item.title}</div>
                   <div className="flex flex-col items-end">
-                    {item.sale_price ? (
+                    {item.has_multiple_sizes && getMinPrice(item) ? (
                       <>
-                        <span className="text-xs md:text-sm text-[#ffd453]">{item.sale_price} ج</span>
-                        <span className="text-xs text-gray-400 line-through">{item.price} ج</span>
+                        <span className="text-xs text-white/70">{t('products.startsFrom') || 'يبدأ من'}</span>
+                        <span className="text-xs md:text-sm text-[#ffd453]">{getMinPrice(item)} {t('currency') || 'ج.م'}</span>
+                      </>
+                    ) : item.sale_price ? (
+                      <>
+                        <span className="text-xs md:text-sm text-[#ffd453]">{item.sale_price} {t('currency') || 'ج.م'}</span>
+                        <span className="text-xs text-gray-400 line-through">{item.price} {t('currency') || 'ج.م'}</span>
                       </>
                     ) : (
-                      <span className="text-xs md:text-sm text-accent">{item.price} ج</span>
+                      <span className="text-xs md:text-sm text-accent">{item.price} {t('currency') || 'ج.م'}</span>
                     )}
                   </div>
                 </div>

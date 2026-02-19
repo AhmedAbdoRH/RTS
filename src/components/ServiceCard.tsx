@@ -12,9 +12,11 @@ interface ProductCardProps {
   price: string;
   salePrice?: string | null;
   id: string | number;
+  hasMultipleSizes?: boolean;
+  minPrice?: string;
 }
 
-export default function ProductCard({ title, description, description_en, imageUrl, price, salePrice, id }: ProductCardProps) {
+export default function ProductCard({ title, description, description_en, imageUrl, price, salePrice, id, hasMultipleSizes, minPrice }: ProductCardProps) {
   /**
    * Handles the click event for the "Contact Now" button.
    * Prevents the default link behavior and opens a WhatsApp chat
@@ -119,13 +121,18 @@ export default function ProductCard({ title, description, description_en, imageU
           
           {/* Price - Far Right */}
           <div className="flex flex-col items-end">
-            {salePrice ? (
+            {hasMultipleSizes && minPrice ? (
               <>
-                <span className="font-bold text-lg text-[#ffd453]">{salePrice} EGP</span>
-                <span className="text-sm text-white/50 line-through">{price} EGP</span>
+                <span className="text-xs text-white/70 mb-1">{t('products.startsFrom') || 'يبدأ من'}</span>
+                <span className="font-bold text-lg text-[#ffd453]">{minPrice} {t('currency') || 'ج.م'}</span>
+              </>
+            ) : salePrice ? (
+              <>
+                <span className="font-bold text-lg text-[#ffd453]">{salePrice} {t('currency') || 'ج.م'}</span>
+                <span className="text-sm text-white/50 line-through">{price} {t('currency') || 'ج.م'}</span>
               </>
             ) : (
-              <span className="font-bold text-lg text-[#ffd453]">{price} EGP</span>
+              <span className="font-bold text-lg text-[#ffd453]">{price} {t('currency') || 'ج.م'}</span>
             )}
           </div>
         </div>
