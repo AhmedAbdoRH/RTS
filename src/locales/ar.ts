@@ -88,7 +88,7 @@ export const ar = {
     contactOrder: 'تواصل معنا للطلب',
     alsoAvailable: 'متوفر لدينا أيضاً',
     startsFrom: 'يبدأ من',
-    size: 'المقاس',
+    size: 'الوزن/النوع',
   },
   
   // Currency

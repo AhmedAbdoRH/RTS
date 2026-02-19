@@ -86,7 +86,7 @@ export const en = {
     contactOrder: 'Contact us to Order',
     alsoAvailable: 'Also Available',
     startsFrom: 'Starts from',
-    size: 'Size',
+    size: 'Weight/Type',
   },
   
   // Currency

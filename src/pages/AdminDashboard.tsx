@@ -1419,8 +1419,8 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                 className="hidden"
                               />
                               <div>
-                                <span className="text-white font-semibold block">المنتج يحتوي على مقاسات/أنواع متعددة</span>
-                                <span className="text-xs text-gray-400 block mt-1">عند تفعيل هذا الخيار، سيتم إلغاء السعر الأساسي للمنتج وتحديد سعر لكل مقاس على حدة.</span>
+                                <span className="text-white font-semibold block">المنتج يحتوي على أوزان/أنواع متعددة</span>
+                                <span className="text-xs text-gray-400 block mt-1">عند تفعيل هذا الخيار، سيتم إلغاء السعر الأساسي للمنتج وتحديد سعر لكل وزن/نوع على حدة.</span>
                               </div>
                             </label>
                         </div>
@@ -1428,7 +1428,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                         {newService.has_multiple_sizes ? (
                           <div className="space-y-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-6">
                             <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-bold text-white flex items-center gap-2"><List className="w-5 h-5 text-[#ffd453]"/> قائمة المقاسات والأسعار</h3>
+                                <h3 className="font-bold text-white flex items-center gap-2"><List className="w-5 h-5 text-[#ffd453]"/> قائمة الأوزان/الأنواع والأسعار</h3>
                                 <button
                                   type="button"
                                   onClick={() => setNewService({
@@ -1437,13 +1437,13 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                   })}
                                   className="text-xs bg-[#1c594e] text-white px-3 py-1.5 rounded hover:bg-[#15453c] transition-colors flex items-center gap-1"
                                 >
-                                  <Plus size={14} /> إضافة مقاس
+                                  <Plus size={14} /> إضافة وزن/نوع
                                 </button>
                             </div>
                             
                             {newService.product_sizes.length === 0 && (
                                 <div className="text-center py-8 border-2 border-dashed border-gray-600 rounded-lg">
-                                    <p className="text-gray-400 mb-2">لم يتم إضافة أي مقاسات بعد</p>
+                                    <p className="text-gray-400 mb-2">لم يتم إضافة أي أوزان/أنواع بعد</p>
                                     <button
                                       type="button"
                                       onClick={() => setNewService({
@@ -1452,7 +1452,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                       })}
                                       className="text-sm text-[#ffd453] hover:underline"
                                     >
-                                      إضافة المقاس الأول
+                                      إضافة الوزن/النوع الأول
                                     </button>
                                 </div>
                             )}
@@ -1467,17 +1467,17 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                     setNewService({ ...newService, product_sizes: newSizes });
                                   }}
                                   className="absolute top-2 left-2 text-red-500 hover:text-red-400 bg-gray-800 p-1 rounded-full hover:bg-gray-700 transition-colors"
-                                  title="حذف المقاس"
+                                  title="حذف الوزن/النوع"
                                 >
                                   <Trash2 size={16} />
                                 </button>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                                     <div className="md:col-span-4">
-                                        <label className="block text-xs text-gray-400 mb-1">اسم المقاس/النوع</label>
+                                        <label className="block text-xs text-gray-400 mb-1">الوزن/النوع</label>
                                         <input
                                           type="text"
-                                          placeholder="مثال: صغير، وسط، كبير"
+                                          placeholder="مثال: 1 كيلو، علبة، كرتونة"
                                           value={size.size}
                                           onChange={(e) => {
                                             const newSizes = [...newService.product_sizes];
