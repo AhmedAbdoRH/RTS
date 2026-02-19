@@ -63,7 +63,7 @@ export default function ProductCard({ title, description, description_en, imageU
   return (
     <div className="group relative bg-white/5 backdrop-blur-md rounded-lg border border-[#ffd453]/10 overflow-hidden transition-all duration-150 hover:scale-[1.02] hover:bg-white/10">
       <Link to={`/product/${id}`} className="block">
-        <div className="relative aspect-[4/3] w-full">
+        <div className="relative aspect-square w-full">
           <img
             src={imageUrl}
             alt={title}
@@ -90,9 +90,8 @@ export default function ProductCard({ title, description, description_en, imageU
             {/* Contact Button */}
             <button
               onClick={handleContactClick}
-              className="blue-button blue-order-button flex items-center gap-2"
+              className="relative px-4 py-2 bg-[#ffd453] text-[#1c594e] font-semibold rounded-md flex items-center gap-2 hover:brightness-110 transition-all duration-300 shadow-lg"
             >
-              <div className="blue-button-border"></div>
               <MessageCircle className="h-5 w-5" />
               <span className="hidden sm:inline">{t('products.orderNow')}</span>
             </button>

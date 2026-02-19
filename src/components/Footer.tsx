@@ -39,18 +39,18 @@ export default function Footer({ storeSettings }: FooterProps) {
               ))}
             </div>
           )}
-          
+
           <div className="flex flex-col items-center gap-1">
             <p className="text-white text-opacity-50 text-xs">
               {t('footer.developedBy')}
             </p>
-            <a 
-              href="https://RehlatHadaf.online" 
+            <a
+              href="https://RehlatHadaf.online"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#ffd453] underline hover:no-underline flex items-center gap-1.5 text-xs font-bold"
             >
-               Rehlat Hadaf for Commercial Marketing 
+              Rehlat Hadaf for Commercial Marketing
               <Target className="text-[#26bd7e] h-4 w-4" />
             </a>
           </div>

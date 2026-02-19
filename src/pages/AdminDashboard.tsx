@@ -19,6 +19,8 @@ interface ServiceFormState {
   image_url: string;
   price: string;
   sale_price: string;
+  wholesale_price: string;
+  wholesale_sale_price: string;
   category_id: string;
   gallery: string[];
   is_featured: boolean;
@@ -57,6 +59,8 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     image_url: '',
     price: '',
     sale_price: '',
+    wholesale_price: '',
+    wholesale_sale_price: '',
     category_id: '',
     gallery: [],
     is_featured: false,
@@ -458,6 +462,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
             category_id: selectedCategory,
             subcategory_id: selectedSubcategory || null,
             sale_price: newService.sale_price || null,
+            wholesale_sale_price: newService.wholesale_sale_price || null,
             is_featured: newService.is_featured || false,
             is_best_seller: newService.is_best_seller || false
         };
@@ -475,9 +480,11 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
             description: '',
             description_en: '',
             image_url: '',
-            price: '',
-            sale_price: '',
-            category_id: '',
+            price: '', 
+          sale_price: '', 
+          wholesale_price: '',
+          wholesale_sale_price: '',
+          category_id: '',
             gallery: [],
             is_featured: false,
             is_best_seller: false,
@@ -503,6 +510,8 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
       image_url: service.image_url || '',
       price: service.price?.toString() || '',
       sale_price: service.sale_price?.toString() || '',
+      wholesale_price: service.wholesale_price?.toString() || '',
+      wholesale_sale_price: service.wholesale_sale_price?.toString() || '',
       category_id: service.category_id || '',
       gallery: Array.isArray(service.gallery) ? service.gallery : [],
       is_featured: service.is_featured || false,
@@ -530,6 +539,8 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
         image_url: newService.image_url,
         price: newService.price,
         sale_price: newService.sale_price || null,
+        wholesale_price: newService.wholesale_price || null,
+        wholesale_sale_price: newService.wholesale_sale_price || null,
         category_id: selectedCategory,
         subcategory_id: selectedSubcategory || null,
         gallery: Array.isArray(newService.gallery) ? newService.gallery : [],
@@ -549,6 +560,8 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
         image_url: '', 
         price: '', 
         sale_price: '', 
+        wholesale_price: '',
+        wholesale_sale_price: '',
         category_id: '', 
         gallery: [],
         is_featured: false,
@@ -575,6 +588,8 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
       image_url: '', 
       price: '', 
       sale_price: '', 
+      wholesale_price: '',
+      wholesale_sale_price: '',
       category_id: '', 
       gallery: [],
       is_featured: false,
@@ -1293,7 +1308,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           <div className="mt-3 flex items-center justify-center gap-4 bg-gray-900/50 p-2 rounded border border-gray-700">
                             <img src={newService.image_url} alt="معاينة" className="w-16 h-16 object-cover rounded border border-gray-600" />
                             <span className="text-gray-400 text-xs">الصورة الحالية/الجديدة</span>
-                            <button type="button" onClick={() => { setNewService({...newService, image_url: ''}); }} className="text-red-500 hover:text-red-400 p-1" title="إزالة الصورة"><X size={16}/></button>
+                            <button type="button" onClick={() => { setNewService({...newService, image_url: ''}); }} className="text-red-500 hover:text-red-400 p-1 font-medium text-sm" title="إزالة الصورة">حذف</button>
                           </div>
                         )}
                         
@@ -1314,9 +1329,34 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           )}
                         </select>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <input type="text" placeholder="السعر الأصلي" value={newService.price} onChange={(e) => setNewService({ ...newService, price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading} required/>
-                          <input type="text" placeholder="سعر التخفيض (اختياري)" value={newService.sale_price} onChange={(e) => setNewService({ ...newService, sale_price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading}/>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                             <label className="block text-gray-300 text-sm font-semibold mb-1">سعر التركيب (للجمهور)</label>
+                             <div className="flex gap-2">
+                                <div className="w-1/2">
+                                  <label className="text-xs text-gray-400 mb-1 block">السعر الأصلي</label>
+                                  <input type="text" placeholder="0" value={newService.price} onChange={(e) => setNewService({ ...newService, price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] placeholder:text-gray-500" disabled={isLoading} required/>
+                                </div>
+                                <div className="w-1/2">
+                                  <label className="text-xs text-gray-400 mb-1 block">سعر التخفيض <br/><span className="text-[10px]">(اختياري)</span></label>
+                                  <input type="text" placeholder="0" value={newService.sale_price} onChange={(e) => setNewService({ ...newService, sale_price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] placeholder:text-gray-500" disabled={isLoading}/>
+                                </div>
+                             </div>
+                          </div>
+                          
+                          <div className="space-y-2 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                             <label className="block text-gray-300 text-sm font-semibold mb-1">سعر الجملة (للتجار)</label>
+                             <div className="flex gap-2">
+                                <div className="w-1/2">
+                                  <label className="text-xs text-gray-400 mb-1 block">السعر الأصلي</label>
+                                  <input type="text" placeholder="0" value={newService.wholesale_price} onChange={(e) => setNewService({ ...newService, wholesale_price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] placeholder:text-gray-500" disabled={isLoading}/>
+                                </div>
+                                <div className="w-1/2">
+                                  <label className="text-xs text-gray-400 mb-1 block">سعر التخفيض <br/><span className="text-[10px]">(اختياري)</span></label>
+                                  <input type="text" placeholder="0" value={newService.wholesale_sale_price} onChange={(e) => setNewService({ ...newService, wholesale_sale_price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] placeholder:text-gray-500" disabled={isLoading}/>
+                                </div>
+                             </div>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1332,7 +1372,16 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
 
                         <div>
                           <label className="block text-sm font-medium text-gray-300 mb-1">صور إضافية للمنتج <span className="text-gray-400">(اختياري)</span></label>
-                          <input type="file" accept="image/*" multiple onChange={handleGalleryUpload} className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#1c594e]/10 file:text-[#1c594e] hover:file:bg-[#1c594e]/20" disabled={uploadingImage || isLoading}/>
+                          <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-700/50 hover:bg-gray-700 transition-colors group">
+                            <div className="flex flex-row items-center justify-center gap-3">
+                              <Upload className="w-6 h-6 text-gray-400 group-hover:text-white transition-colors" />
+                              <div className="text-right">
+                                <p className="text-sm text-gray-400 group-hover:text-white transition-colors"><span className="font-semibold">اضغط للرفع</span> أو اسحب وأفلت</p>
+                                <p className="text-[10px] text-gray-500 group-hover:text-gray-400 transition-colors">PNG, JPG, GIF (بحد أقصى 5 صور)</p>
+                              </div>
+                            </div>
+                            <input type="file" accept="image/*" multiple onChange={handleGalleryUpload} className="hidden" disabled={uploadingImage || isLoading}/>
+                          </label>
                           <div className="flex flex-wrap gap-2 mt-2">
                             {newService.gallery && newService.gallery.map((img, idx) => (
                               <div key={img} className="relative group">
@@ -1376,6 +1425,19 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                                     </>
                                   ) : (
                                     <span className="font-semibold text-green-400">{service.price}</span>
+                                  )}
+                                  {(service.wholesale_price || service.wholesale_sale_price) && (
+                                    <div className="flex items-center gap-1 text-xs bg-blue-900/50 text-blue-200 px-2 py-0.5 rounded border border-blue-800">
+                                      <span>جملة:</span>
+                                      {service.wholesale_sale_price ? (
+                                        <>
+                                          <span className="font-bold text-green-300">{service.wholesale_sale_price}</span>
+                                          <span className="line-through text-blue-400/70">{service.wholesale_price}</span>
+                                        </>
+                                      ) : (
+                                        <span>{service.wholesale_price}</span>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               </div>
