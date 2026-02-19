@@ -13,6 +13,17 @@ export interface ProductImage {
   created_at: string;
 }
 
+export interface ProductSize {
+  id: string;
+  service_id: string;
+  size: string;
+  price: string | null;
+  sale_price: string | null;
+  wholesale_price: string | null;
+  wholesale_sale_price: string | null;
+  created_at: string;
+}
+
 export interface Service {
   id: string;
   category_id: string;
@@ -31,7 +42,7 @@ export interface Service {
   is_featured?: boolean; // أحدث العروض
   is_best_seller?: boolean; // الأكثر مبيعاً
   has_multiple_sizes?: boolean;
-  sizes?: { size: string; price: string; sale_price?: string }[];
+  product_sizes?: ProductSize[];
   created_at: string;
   category?: Category;
   // For search results display

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { Service } from '../types/database';
+import type { Service, ProductSize } from '../types/database';
 import { MessageCircle } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -20,6 +20,7 @@ export default function ProductDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [service, setService] = useState<Service | null>(null);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suggested, setSuggested] = useState<Service[]>([]);
@@ -64,7 +65,7 @@ export default function ProductDetails() {
 
       const { data, error: fetchError } = await supabase
         .from('services')
-        .select('*')
+        .select('*, product_sizes(*)')
         .eq('id', serviceId)
         .single();
 
@@ -72,6 +73,12 @@ export default function ProductDetails() {
       if (!data) throw new Error('Product not found');
 
       setService(data);
+      if (data.has_multiple_sizes && data.product_sizes && data.product_sizes.length > 0) {
+        // Sort sizes if needed or just pick the first one
+        setSelectedSize(data.product_sizes[0]);
+      } else {
+        setSelectedSize(null);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -97,7 +104,9 @@ export default function ProductDetails() {
   const handleContact = () => {
     if (!service) return;
     const productUrl = window.location.href;
-    const message = `${t('whatsapp.orderMessage')}\n${service.title}\n${t('products.price')}: ${service.price}\n${productUrl}`;
+    const price = selectedSize ? (selectedSize.sale_price || selectedSize.price) : (service.sale_price || service.price);
+    const sizeText = selectedSize ? `\n${t('products.size') || 'المقاس'}: ${selectedSize.size}` : '';
+    const message = `${t('whatsapp.orderMessage')}\n${service.title}${sizeText}\n${t('products.price')}: ${price}\n${productUrl}`;
     window.open(`https://wa.me/201557777587?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -285,14 +294,40 @@ export default function ProductDetails() {
                     : service.description}
                 </p>
                 <div className="border-t border-white/10 pt-6 mb-6">
+                  {/* Size Selection */}
+                  {service.has_multiple_sizes && service.product_sizes && service.product_sizes.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-[#ffd453] font-bold mb-3 text-right">{t('products.size') || 'المقاس'}:</h3>
+                      <div className="flex flex-wrap justify-end gap-3">
+                        {service.product_sizes.map((size) => (
+                          <button
+                            key={size.id}
+                            onClick={() => setSelectedSize(size)}
+                            className={`px-4 py-2 rounded-md border transition-colors ${
+                              selectedSize?.id === size.id
+                                ? 'bg-[#ffd453] text-[#1c594e] border-[#ffd453] font-bold'
+                                : 'bg-transparent text-white border-white/30 hover:border-[#ffd453]'
+                            }`}
+                          >
+                            {size.size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="text-2xl font-bold text-[#ffd453] mb-6 text-right">
-                    {service.sale_price ? (
+                    {(selectedSize ? selectedSize.sale_price : service.sale_price) ? (
                       <div className="flex flex-col items-end">
-                        <span className="text-2xl text-[#ffd453]">{service.sale_price} ج</span>
-                        <span className="text-lg text-white/40 line-through">{service.price} ج</span>
+                        <span className="text-2xl text-[#ffd453]">
+                          {selectedSize ? selectedSize.sale_price : service.sale_price} ج
+                        </span>
+                        <span className="text-lg text-white/40 line-through">
+                          {selectedSize ? selectedSize.price : service.price} ج
+                        </span>
                       </div>
                     ) : (
-                      <span>{service.price} ج</span>
+                      <span>{selectedSize ? selectedSize.price : service.price} ج</span>
                     )}
                   </div>
                   <div className="flex gap-4 items-center">
@@ -307,10 +342,11 @@ export default function ProductDetails() {
                     <button
                       onClick={(e) => {
                         e.preventDefault();
+                        const price = (selectedSize ? (selectedSize.sale_price || selectedSize.price) : (service.sale_price || service.price)) || '0';
                         addToCart({
-                          id: service.id,
-                          title: service.title,
-                          price: service.sale_price || service.price || '0',
+                          id: selectedSize ? `${service.id}-${selectedSize.id}` : service.id,
+                          title: selectedSize ? `${service.title} - ${selectedSize.size}` : service.title,
+                          price: price,
                           imageUrl: service.image_url || ''
                         });
                         toast.success('تمت إضافة المنتج إلى السلة');

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { Category, Service, Banner, StoreSettings, Testimonial, Subcategory } from '../types/database'; // Added Subcategory type
-import { Trash2, Edit, Plus, Save, X, Upload, Store, Image, List, Package } from 'lucide-react';
+import type { Category, Service, Banner, StoreSettings, Testimonial, Subcategory, ProductSize } from '../types/database'; // Added Subcategory type
+import { Trash2, Edit, Plus, Save, X, Upload, Store, Image, List, Package, CheckSquare, Square } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -25,6 +25,14 @@ interface ServiceFormState {
   gallery: string[];
   is_featured: boolean;
   is_best_seller: boolean;
+  has_multiple_sizes: boolean;
+  product_sizes: {
+    size: string;
+    price: string;
+    sale_price: string;
+    wholesale_price: string;
+    wholesale_sale_price: string;
+  }[];
 }
 
 export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps) {
@@ -65,6 +73,8 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     gallery: [],
     is_featured: false,
     is_best_seller: false,
+    has_multiple_sizes: false,
+    product_sizes: [],
   });
   const [editingSubcategory, setEditingSubcategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('');
@@ -168,7 +178,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
 
       const { data: servicesData, error: servicesError } = await supabase
         .from('services')
-        .select(`*, category:categories(*)`)
+        .select(`*, category:categories(*), product_sizes(*)`)
         .order('created_at', { ascending: false });
       if (servicesError) throw servicesError;
       setServices(servicesData || []);
@@ -457,22 +467,47 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     }
     setIsLoading(true);
     try {
+        // Exclude product_sizes from service insert
+        const { product_sizes, ...serviceData } = newService;
+        
         const serviceToAdd = {
-            ...newService,
+            ...serviceData,
             category_id: selectedCategory,
             subcategory_id: selectedSubcategory || null,
-            sale_price: newService.sale_price || null,
-            wholesale_sale_price: newService.wholesale_sale_price || null,
             is_featured: newService.is_featured || false,
-            is_best_seller: newService.is_best_seller || false
+            is_best_seller: newService.is_best_seller || false,
+            has_multiple_sizes: newService.has_multiple_sizes || false,
+            price: newService.has_multiple_sizes ? null : newService.price, // Set price to null if has multiple sizes
+            sale_price: newService.has_multiple_sizes ? null : (newService.sale_price || null),
+            wholesale_price: newService.has_multiple_sizes ? null : newService.wholesale_price,
+            wholesale_sale_price: newService.has_multiple_sizes ? null : (newService.wholesale_sale_price || null),
         };
 
-        const { error } = await supabase.from('services').insert([{
+        const { data: insertedService, error } = await supabase.from('services').insert([{
           ...serviceToAdd,
           description: serviceToAdd.description || null,
           description_en: serviceToAdd.description_en || null
-        }]);
+        }]).select().single();
+        
         if (error) throw error;
+
+        // Insert product sizes if applicable
+        if (newService.has_multiple_sizes && newService.product_sizes.length > 0) {
+            const sizesToInsert = newService.product_sizes.map(s => ({
+                service_id: insertedService.id,
+                size: s.size,
+                price: s.price,
+                sale_price: s.sale_price || null,
+                wholesale_price: s.wholesale_price || null,
+                wholesale_sale_price: s.wholesale_sale_price || null
+            }));
+            
+            const { error: sizesError } = await supabase
+                .from('product_sizes')
+                .insert(sizesToInsert);
+                
+            if (sizesError) throw sizesError;
+        }
 
         // Reset form
         setNewService({
@@ -481,13 +516,15 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
             description_en: '',
             image_url: '',
             price: '', 
-          sale_price: '', 
-          wholesale_price: '',
-          wholesale_sale_price: '',
-          category_id: '',
+            sale_price: '', 
+            wholesale_price: '',
+            wholesale_sale_price: '',
+            category_id: '',
             gallery: [],
             is_featured: false,
             is_best_seller: false,
+            has_multiple_sizes: false,
+            product_sizes: [],
         });
         setSelectedCategory('');
         setSelectedSubcategory('');
@@ -516,6 +553,14 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
       gallery: Array.isArray(service.gallery) ? service.gallery : [],
       is_featured: service.is_featured || false,
       is_best_seller: service.is_best_seller || false,
+      has_multiple_sizes: service.has_multiple_sizes || false,
+      product_sizes: service.product_sizes ? service.product_sizes.map(s => ({
+        size: s.size,
+        price: s.price || '',
+        sale_price: s.sale_price || '',
+        wholesale_price: s.wholesale_price || '',
+        wholesale_sale_price: s.wholesale_sale_price || '',
+      })) : [],
     });
 
     setSelectedCategory(service.category_id || '');
@@ -533,25 +578,57 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
     }
     setIsLoading(true);
     try {
+      const { product_sizes, ...serviceData } = newService;
+      
       const serviceToUpdate = {
         title: newService.title,
         description: newService.description,
         image_url: newService.image_url,
-        price: newService.price,
-        sale_price: newService.sale_price || null,
-        wholesale_price: newService.wholesale_price || null,
-        wholesale_sale_price: newService.wholesale_sale_price || null,
+        price: newService.has_multiple_sizes ? null : newService.price,
+        sale_price: newService.has_multiple_sizes ? null : (newService.sale_price || null),
+        wholesale_price: newService.has_multiple_sizes ? null : newService.wholesale_price,
+        wholesale_sale_price: newService.has_multiple_sizes ? null : (newService.wholesale_sale_price || null),
         category_id: selectedCategory,
         subcategory_id: selectedSubcategory || null,
         gallery: Array.isArray(newService.gallery) ? newService.gallery : [],
         is_featured: newService.is_featured || false,
-        is_best_seller: newService.is_best_seller || false
+        is_best_seller: newService.is_best_seller || false,
+        has_multiple_sizes: newService.has_multiple_sizes || false,
+        description_en: newService.description_en || null
       };
+      
       const { error } = await supabase
         .from('services')
         .update(serviceToUpdate)
         .eq('id', editingService);
       if (error) throw error;
+
+      // Sync sizes
+      // First delete all existing sizes for this service
+      const { error: deleteError } = await supabase
+        .from('product_sizes')
+        .delete()
+        .eq('service_id', editingService);
+        
+      if (deleteError) throw deleteError;
+
+      // Then insert new ones if applicable
+      if (newService.has_multiple_sizes && newService.product_sizes.length > 0) {
+           const sizesToInsert = newService.product_sizes.map(s => ({
+               service_id: editingService,
+               size: s.size,
+               price: s.price,
+               sale_price: s.sale_price || null,
+               wholesale_price: s.wholesale_price || null,
+               wholesale_sale_price: s.wholesale_sale_price || null
+           }));
+           
+           const { error: insertError } = await supabase
+             .from('product_sizes')
+             .insert(sizesToInsert);
+             
+           if (insertError) throw insertError;
+      }
 
       setNewService({ 
         title: '', 
@@ -565,7 +642,9 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
         category_id: '', 
         gallery: [],
         is_featured: false,
-        is_best_seller: false
+        is_best_seller: false,
+        has_multiple_sizes: false,
+        product_sizes: [],
       });
       setSelectedCategory('');
       setSelectedSubcategory('');
@@ -573,9 +652,9 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
       await fetchData();
       setSuccessMsg("تم تحديث المنتج بنجاح!");
     } catch (err: any) {
-      setError(`خطأ في تحديث المنتج: ${err.message}`);
+        setError(`خطأ في تحديث المنتج: ${err.message}`);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
@@ -1290,7 +1369,6 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                       <form onSubmit={editingService ? handleUpdateService : handleAddService} className="mb-8 space-y-4" id="service-form">
                         <input type="text" placeholder="عنوان المنتج" value={newService.title} onChange={(e) => setNewService({ ...newService, title: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" required disabled={isLoading}/>
                         <textarea placeholder="وصف المنتج بالعربية (اختياري)" value={newService.description} onChange={(e) => setNewService({ ...newService, description: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading}/>
-                        <textarea placeholder="وصف المنتج بالإنجليزية (اختياري)" value={newService.description_en} onChange={(e) => setNewService({ ...newService, description_en: e.target.value })} rows={3} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e]" disabled={isLoading}/>
                         
                         
                         <div>
@@ -1329,13 +1407,164 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                           )}
                         </select>
                         
+                        <div className="mb-6">
+                            <label className="flex items-center gap-3 cursor-pointer bg-gray-800/50 p-4 rounded-lg border border-gray-700 hover:bg-gray-700/50 transition-colors group">
+                              <div className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${newService.has_multiple_sizes ? 'bg-[#1c594e] border-[#1c594e]' : 'border-gray-500 group-hover:border-[#1c594e]'}`}>
+                                {newService.has_multiple_sizes && <CheckSquare className="w-4 h-4 text-white" />}
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={newService.has_multiple_sizes}
+                                onChange={(e) => setNewService({ ...newService, has_multiple_sizes: e.target.checked })}
+                                className="hidden"
+                              />
+                              <div>
+                                <span className="text-white font-semibold block">المنتج يحتوي على مقاسات/أنواع متعددة</span>
+                                <span className="text-xs text-gray-400 block mt-1">عند تفعيل هذا الخيار، سيتم إلغاء السعر الأساسي للمنتج وتحديد سعر لكل مقاس على حدة.</span>
+                              </div>
+                            </label>
+                        </div>
+
+                        {newService.has_multiple_sizes ? (
+                          <div className="space-y-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-bold text-white flex items-center gap-2"><List className="w-5 h-5 text-[#ffd453]"/> قائمة المقاسات والأسعار</h3>
+                                <button
+                                  type="button"
+                                  onClick={() => setNewService({
+                                    ...newService,
+                                    product_sizes: [...newService.product_sizes, { size: '', price: '', sale_price: '', wholesale_price: '', wholesale_sale_price: '' }]
+                                  })}
+                                  className="text-xs bg-[#1c594e] text-white px-3 py-1.5 rounded hover:bg-[#15453c] transition-colors flex items-center gap-1"
+                                >
+                                  <Plus size={14} /> إضافة مقاس
+                                </button>
+                            </div>
+                            
+                            {newService.product_sizes.length === 0 && (
+                                <div className="text-center py-8 border-2 border-dashed border-gray-600 rounded-lg">
+                                    <p className="text-gray-400 mb-2">لم يتم إضافة أي مقاسات بعد</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => setNewService({
+                                        ...newService,
+                                        product_sizes: [...newService.product_sizes, { size: '', price: '', sale_price: '', wholesale_price: '', wholesale_sale_price: '' }]
+                                      })}
+                                      className="text-sm text-[#ffd453] hover:underline"
+                                    >
+                                      إضافة المقاس الأول
+                                    </button>
+                                </div>
+                            )}
+
+                            {newService.product_sizes.map((size, index) => (
+                              <div key={index} className="p-4 bg-gray-900/50 rounded-lg border border-gray-600 relative animate-fadeIn">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newSizes = [...newService.product_sizes];
+                                    newSizes.splice(index, 1);
+                                    setNewService({ ...newService, product_sizes: newSizes });
+                                  }}
+                                  className="absolute top-2 left-2 text-red-500 hover:text-red-400 bg-gray-800 p-1 rounded-full hover:bg-gray-700 transition-colors"
+                                  title="حذف المقاس"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                    <div className="md:col-span-4">
+                                        <label className="block text-xs text-gray-400 mb-1">اسم المقاس/النوع</label>
+                                        <input
+                                          type="text"
+                                          placeholder="مثال: صغير، وسط، كبير"
+                                          value={size.size}
+                                          onChange={(e) => {
+                                            const newSizes = [...newService.product_sizes];
+                                            newSizes[index].size = e.target.value;
+                                            setNewService({ ...newService, product_sizes: newSizes });
+                                          }}
+                                          className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] text-sm"
+                                          required
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-4 space-y-2">
+                                         <label className="block text-gray-300 text-xs font-semibold mb-1 text-center bg-gray-800 rounded py-0.5">سعر التركيب (للجمهور)</label>
+                                         <div className="flex gap-2">
+                                            <div className="w-1/2">
+                                                <input
+                                                  type="text"
+                                                  placeholder="السعر"
+                                                  value={size.price}
+                                                  onChange={(e) => {
+                                                    const newSizes = [...newService.product_sizes];
+                                                    newSizes[index].price = e.target.value;
+                                                    setNewService({ ...newService, product_sizes: newSizes });
+                                                  }}
+                                                  className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 text-sm placeholder:text-gray-500"
+                                                  required
+                                                />
+                                            </div>
+                                            <div className="w-1/2">
+                                                <input
+                                                  type="text"
+                                                  placeholder="تخفيض"
+                                                  value={size.sale_price}
+                                                  onChange={(e) => {
+                                                    const newSizes = [...newService.product_sizes];
+                                                    newSizes[index].sale_price = e.target.value;
+                                                    setNewService({ ...newService, product_sizes: newSizes });
+                                                  }}
+                                                  className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 text-sm placeholder:text-gray-500"
+                                                />
+                                            </div>
+                                         </div>
+                                    </div>
+
+                                    <div className="md:col-span-4 space-y-2">
+                                         <label className="block text-gray-300 text-xs font-semibold mb-1 text-center bg-gray-800 rounded py-0.5">سعر الجملة (للتجار)</label>
+                                         <div className="flex gap-2">
+                                            <div className="w-1/2">
+                                                <input
+                                                  type="text"
+                                                  placeholder="السعر"
+                                                  value={size.wholesale_price}
+                                                  onChange={(e) => {
+                                                    const newSizes = [...newService.product_sizes];
+                                                    newSizes[index].wholesale_price = e.target.value;
+                                                    setNewService({ ...newService, product_sizes: newSizes });
+                                                  }}
+                                                  className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 text-sm placeholder:text-gray-500"
+                                                />
+                                            </div>
+                                            <div className="w-1/2">
+                                                <input
+                                                  type="text"
+                                                  placeholder="تخفيض"
+                                                  value={size.wholesale_sale_price}
+                                                  onChange={(e) => {
+                                                    const newSizes = [...newService.product_sizes];
+                                                    newSizes[index].wholesale_sale_price = e.target.value;
+                                                    setNewService({ ...newService, product_sizes: newSizes });
+                                                  }}
+                                                  className="w-full p-2 rounded text-white bg-gray-700 border border-gray-600 text-sm placeholder:text-gray-500"
+                                                />
+                                            </div>
+                                         </div>
+                                    </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
                              <label className="block text-gray-300 text-sm font-semibold mb-1">سعر التركيب (للجمهور)</label>
                              <div className="flex gap-2">
                                 <div className="w-1/2">
                                   <label className="text-xs text-gray-400 mb-1 block">السعر الأصلي</label>
-                                  <input type="text" placeholder="0" value={newService.price} onChange={(e) => setNewService({ ...newService, price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] placeholder:text-gray-500" disabled={isLoading} required/>
+                                  <input type="text" placeholder="0" value={newService.price} onChange={(e) => setNewService({ ...newService, price: e.target.value })} className="w-full p-3 rounded text-white bg-gray-700 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-[#1c594e] placeholder:text-gray-500" disabled={isLoading} required={!newService.has_multiple_sizes}/>
                                 </div>
                                 <div className="w-1/2">
                                   <label className="text-xs text-gray-400 mb-1 block">سعر التخفيض <br/><span className="text-[10px]">(اختياري)</span></label>
@@ -1358,6 +1587,7 @@ export default function AdminDashboard({ onSettingsUpdate }: AdminDashboardProps
                              </div>
                           </div>
                         </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div className="flex items-center gap-2 p-2 bg-gray-700/50 rounded-md">
