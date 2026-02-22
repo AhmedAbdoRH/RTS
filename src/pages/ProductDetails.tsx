@@ -251,7 +251,7 @@ export default function ProductDetails() {
           <div className="rounded-md shadow-lg overflow-hidden glass">
             <div className="md:flex">
               <div className="md:w-1/2">
-                <div className="w-full aspect-[4/3] bg-gray-200 relative rounded-t-md md:rounded-none md:rounded-s-md overflow-hidden">
+                <div className="w-full aspect-square bg-gray-200 relative rounded-t-md md:rounded-none md:rounded-s-md overflow-hidden">
                   {prevImageIndexState !== null && isTransitioning && (
                     <img
                       src={images[prevImageIndexState]}
