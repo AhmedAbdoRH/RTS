@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ServiceCard from '../components/ServiceCard';
-import type { Service, Category } from '../types/database';
+import type { Service, Category, Subcategory } from '../types/database';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function CategoryProducts() {
@@ -10,6 +10,8 @@ export default function CategoryProducts() {
   const { language } = useLanguage();
   const [services, setServices] = useState<Service[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,13 +36,30 @@ export default function CategoryProducts() {
       if (categoryError) throw categoryError;
       setCategory(categoryData);
 
+      // Fetch subcategories
+      const { data: subcategoriesData, error: subcategoriesError } = await supabase
+        .from('subcategories')
+        .select('*')
+        .eq('category_id', categoryId);
+
+      if (subcategoriesError) {
+        console.error('Error fetching subcategories:', subcategoriesError);
+        throw subcategoriesError;
+      }
+      console.log('Fetched subcategories:', subcategoriesData);
+      setSubcategories(subcategoriesData || []);
+
       // Fetch services for this category
       const { data: servicesData, error: servicesError } = await supabase
         .from('services')
         .select('*, product_sizes(*)')
         .eq('category_id', categoryId);
 
-      if (servicesError) throw servicesError;
+      if (servicesError) {
+        console.error('Error fetching services:', servicesError);
+        throw servicesError;
+      }
+      console.log('Fetched services:', servicesData);
       setServices(servicesData || []);
     } catch (err: any) {
       setError(err.message);
@@ -64,6 +83,10 @@ export default function CategoryProducts() {
     const min = Math.min(...prices);
     return min === Infinity ? undefined : min.toString();
   };
+
+  const filteredServices = selectedSubcategory
+    ? services.filter(service => service.subcategory_id === selectedSubcategory)
+    : services;
 
   if (isLoading) {
     return (
@@ -114,13 +137,42 @@ export default function CategoryProducts() {
 
         <div className="bg-white/5 backdrop-blur-xl rounded-lg p-8 border border-white/10 shadow-2xl shadow-black/40">
 
-          {services.length === 0 ? (
+          {/* Subcategories Filter */}
+          {subcategories.length > 0 && (
+            <div className="flex flex-wrap gap-4 mb-8 justify-center">
+              <button
+                onClick={() => setSelectedSubcategory(null)}
+                className={`px-6 py-2 rounded-full transition-all ${
+                  selectedSubcategory === null
+                    ? 'bg-[#ffd453] text-[#1c594e] font-bold shadow-lg scale-105'
+                    : 'bg-white/10 text-white hover:bg-white/20'
+                }`}
+              >
+                {language === 'ar' ? 'الكل' : 'All'}
+              </button>
+              {subcategories.map((sub) => (
+                <button
+                  key={sub.id}
+                  onClick={() => setSelectedSubcategory(sub.id)}
+                  className={`px-6 py-2 rounded-full transition-all ${
+                    selectedSubcategory === sub.id
+                      ? 'bg-[#ffd453] text-[#1c594e] font-bold shadow-lg scale-105'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  {sub.name_ar}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredServices.length === 0 ? (
             <p className="text-center text-white/70 py-8">
               {language === 'ar' ? 'لا توجد منتجات في هذا القسم حالياً' : 'No products in this category currently'}
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {services.map((service) => (
+              {filteredServices.map((service) => (
                 <ServiceCard
                   key={service.id}
                   id={service.id}

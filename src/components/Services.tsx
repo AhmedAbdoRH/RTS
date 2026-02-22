@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import ServiceCard from './ServiceCard';
 import { supabase } from '../lib/supabase';
-import type { Service, Category } from '../types/database';
+import type { Service, Category, Subcategory } from '../types/database';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -9,7 +9,9 @@ export default function Services() {
   const { t, language } = useLanguage();
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | 'featured' | 'best_sellers' | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasFeaturedProducts, setHasFeaturedProducts] = useState(false);
@@ -19,6 +21,15 @@ export default function Services() {
     fetchCategories();
     fetchServices();
   }, []);
+
+  useEffect(() => {
+    if (selectedCategory && selectedCategory !== 'featured' && selectedCategory !== 'best_sellers') {
+      fetchSubcategories(selectedCategory);
+    } else {
+      setSubcategories([]);
+    }
+    setSelectedSubcategory(null);
+  }, [selectedCategory]);
 
   const fetchCategories = async () => {
     try {
@@ -31,6 +42,20 @@ export default function Services() {
       setCategories(data || []);
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const fetchSubcategories = async (categoryId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('subcategories')
+        .select('*')
+        .eq('category_id', categoryId);
+
+      if (error) throw error;
+      setSubcategories(data || []);
+    } catch (err: any) {
+      console.error('Error fetching subcategories:', err.message);
     }
   };
 
@@ -66,18 +91,24 @@ export default function Services() {
   }, []);
 
   const filteredServices = useCallback((): Service[] => {
-    if (!selectedCategory) return services;
-    
-    if (selectedCategory === 'featured') {
-      return services.filter(service => service.is_featured === true);
+    let result = services;
+
+    if (selectedCategory) {
+      if (selectedCategory === 'featured') {
+        result = result.filter(service => service.is_featured === true);
+      } else if (selectedCategory === 'best_sellers') {
+        result = result.filter(service => service.is_best_seller === true);
+      } else {
+        result = result.filter(service => service.category_id === selectedCategory);
+      }
     }
     
-    if (selectedCategory === 'best_sellers') {
-      return services.filter(service => service.is_best_seller === true);
+    if (selectedSubcategory) {
+      result = result.filter(service => service.subcategory_id === selectedSubcategory);
     }
     
-    return services.filter(service => service.category_id === selectedCategory);
-  }, [selectedCategory, services]);
+    return result;
+  }, [selectedCategory, selectedSubcategory, services]);
 
   const getMinPrice = (service: Service): string | undefined => {
     if (!service.has_multiple_sizes || !service.product_sizes || service.product_sizes.length === 0) {
@@ -241,6 +272,43 @@ export default function Services() {
             ))}
           </AnimatePresence>
         </motion.div>
+
+        {/* Subcategories - Only shown when a specific category is selected */}
+        <AnimatePresence>
+          {selectedCategory && subcategories.length > 0 && (
+            <motion.div
+              className="flex flex-wrap gap-2 justify-center mb-8"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <button
+                onClick={() => setSelectedSubcategory(null)}
+                className={`px-4 py-1.5 rounded-full text-sm transition-all ${
+                  selectedSubcategory === null
+                    ? 'bg-[#ffd453] text-[#1c594e] font-bold shadow-md'
+                    : 'bg-white/10 text-white hover:bg-white/20'
+                }`}
+              >
+                {language === 'ar' ? 'الكل' : 'All'}
+              </button>
+              {subcategories.map((sub) => (
+                <button
+                  key={sub.id}
+                  onClick={() => setSelectedSubcategory(sub.id)}
+                  className={`px-4 py-1.5 rounded-full text-sm transition-all ${
+                    selectedSubcategory === sub.id
+                      ? 'bg-[#ffd453] text-[#1c594e] font-bold shadow-md'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  {sub.name_ar}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Products Grid */}
         <motion.div
