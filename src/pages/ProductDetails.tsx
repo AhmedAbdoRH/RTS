@@ -413,7 +413,7 @@ export default function ProductDetails() {
                   <img
                     src={imageUrl}
                     alt={item.title}
-                    className="w-full h-24 md:h-40 object-cover rounded"
+                    className="w-full aspect-square object-cover rounded"
                   />
                   <div className="mt-2 text-sm md:text-base font-bold text-secondary truncate text-right">{item.title}</div>
                   <div className="flex flex-col items-end">

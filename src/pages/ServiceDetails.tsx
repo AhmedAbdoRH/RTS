@@ -341,7 +341,7 @@ export default function ProductDetails() {
                     <img
                       src={imageUrl}
                       alt={item.title}
-                      className="w-full h-24 md:h-40 object-cover rounded"
+                      className="w-full aspect-square object-cover rounded"
                     />
                     <div className="mt-2 text-sm md:text-base font-bold text-[#ffd453] truncate">{item.title}</div>
                     <div className="text-xs md:text-sm text-white/70">{item.price} ج</div>
