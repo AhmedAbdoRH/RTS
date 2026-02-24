@@ -231,14 +231,14 @@ const DecorativeBranch = ({
           />
 
           {/* Flag 1: Red */}
-          <g transform="translate(40, 32)">
+          <g transform={`translate(${isMobile ? 100 : 70}, ${isMobile ? 60 : 40})`}>
             <motion.g animate={{ rotate: [2, -2, 2] }} transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut", delay: 0.1 }} style={{ transformOrigin: "top center" }}>
               <path d="M 0 0 L 15 35 L 30 0 Z" fill="#E63946" stroke="#ffd453" strokeWidth="1" />
             </motion.g>
           </g>
 
           {/* Flag 2: Yellow/Gold */}
-          <g transform="translate(90, 56)">
+          <g transform={`translate(${isMobile ? 200 : 150}, ${isMobile ? 40 : 60})`}>
             <motion.g animate={{ rotate: [-3, 3, -3] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 0.3 }} style={{ transformOrigin: "top center" }}>
               <path d="M 0 0 L 15 35 L 30 0 Z" fill="#F4A261" stroke="#ffd453" strokeWidth="1" />
             </motion.g>
@@ -247,23 +247,9 @@ const DecorativeBranch = ({
           {!isMobile && (
             <>
               {/* Flag 3: Green */}
-              <g transform="translate(140, 60)">
+              <g transform="translate(230, 40)">
                 <motion.g animate={{ rotate: [2, -2, 2] }} transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut", delay: 0.5 }} style={{ transformOrigin: "top center" }}>
                   <path d="M 0 0 L 15 35 L 30 0 Z" fill="#2A9D8F" stroke="#ffd453" strokeWidth="1" />
-                </motion.g>
-              </g>
-
-              {/* Flag 4: Blue */}
-              <g transform="translate(190, 48)">
-                <motion.g animate={{ rotate: [-2, 2, -2] }} transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut", delay: 0.2 }} style={{ transformOrigin: "top center" }}>
-                  <path d="M 0 0 L 15 35 L 30 0 Z" fill="#457B9D" stroke="#ffd453" strokeWidth="1" />
-                </motion.g>
-              </g>
-
-              {/* Flag 5: Purple */}
-              <g transform="translate(240, 20)">
-                <motion.g animate={{ rotate: [3, -3, 3] }} transition={{ repeat: Infinity, duration: 2.6, ease: "easeInOut", delay: 0.4 }} style={{ transformOrigin: "top center" }}>
-                  <path d="M 0 0 L 15 35 L 30 0 Z" fill="#9D4EDD" stroke="#ffd453" strokeWidth="1" />
                 </motion.g>
               </g>
             </>
