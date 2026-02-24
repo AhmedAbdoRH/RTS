@@ -16,6 +16,7 @@ import ServiceDetails from './pages/ServiceDetails';
 import CategoryProducts from './pages/CategoryProducts';
 import ProductDetails from './pages/ProductDetails';
 import LoadingScreen from './components/LoadingScreen';
+import RamadanLanterns from './components/RamadanLanterns';
 import type { StoreSettings, Banner } from './types/database';
 import { ThemeProvider } from './theme/ThemeContext';
 
@@ -221,6 +222,7 @@ function App() {
         backgroundAttachment: 'fixed',
       }}
     >
+      <RamadanLanterns />
       <Header />
       {window.location.pathname === '/' && layoutBanners.length > 0 && (
         <BannerSlider banners={layoutBanners} />
